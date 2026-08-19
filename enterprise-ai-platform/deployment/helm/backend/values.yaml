@@ -1,0 +1,56 @@
+replicaCount: 3
+
+image:
+  repository: eatacr.azurecr.io/eatap-backend
+  pullPolicy: IfNotPresent
+  tag: ""
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: 2000m
+    memory: 2Gi
+
+autoscaling:
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+  hosts:
+    - host: api.eatap.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+  tls:
+    - secretName: eatap-tls
+      hosts:
+        - api.eatap.example.com
+
+env:
+  ENVIRONMENT: production
+  LOG_LEVEL: INFO
+  WORKERS: "4"
+
+secretsRef:
+  keyVaultName: eatap-prod-kv
+  secrets:
+    - AZURE_OPENAI_API_KEY
+    - AZURE_SEARCH_API_KEY
+    - DATABASE_URL
+    - REDIS_URL
+    - ADO_PAT_TOKEN
+    - JWT_SIGNING_KEY
+    - SERVICE_BUS_CONNECTION_STRING
