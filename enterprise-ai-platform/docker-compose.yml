@@ -1,0 +1,233 @@
+version: "3.9"
+
+services:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Backend API
+  # ─────────────────────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eatap-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql+asyncpg://eatap:eatap_password@postgres:5432/eatap_db
+      - REDIS_URL=redis://redis:6379/0
+      - SERVICE_BUS_CONNECTION_STRING=${SERVICE_BUS_CONNECTION_STRING:-}
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_CHAT_DEPLOYMENT=${AZURE_OPENAI_CHAT_DEPLOYMENT:-gpt-4o}
+      - AZURE_OPENAI_MINI_DEPLOYMENT=${AZURE_OPENAI_MINI_DEPLOYMENT:-gpt-4o-mini}
+      - AZURE_OPENAI_EMBEDDING_DEPLOYMENT=${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:-text-embedding-3-large}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-08-01-preview}
+      - AZURE_SEARCH_ENDPOINT=${AZURE_SEARCH_ENDPOINT}
+      - AZURE_SEARCH_API_KEY=${AZURE_SEARCH_API_KEY}
+      - AZURE_SEARCH_INDEX_NAME=${AZURE_SEARCH_INDEX_NAME:-eatap-knowledge-base}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET}
+      - AZURE_AUDIENCE=${AZURE_AUDIENCE}
+      - ADO_ORGANIZATION=${ADO_ORGANIZATION}
+      - ADO_PROJECT=${ADO_PROJECT}
+      - ADO_PAT=${ADO_PAT}
+      - KEY_VAULT_URL=${KEY_VAULT_URL:-https://placeholder.vault.azure.net/}
+      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING:-}
+      - APP_SECRET_KEY=${APP_SECRET_KEY:-dev-secret-key-must-be-32-chars-!!}
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
+      - COHERE_API_KEY=${COHERE_API_KEY:-}
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
+      # MCP server URLs — agents fall back to direct REST/RAG when unset
+      - MCP_ADO_URL=http://ado-mcp:8001
+      - MCP_KB_URL=http://kb-mcp:8002
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ado-mcp:
+        condition: service_healthy
+      kb-mcp:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - ./agents:/app/agents
+      - ./rag:/app/rag
+      - ./workflows:/app/workflows
+      - ./security:/app/security
+      - ./events:/app/events
+      - ./prompts:/app/prompts
+      - ./mcp:/app/mcp
+    networks:
+      - eatap-network
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # ADO MCP Server — owns ADO PAT; exposes tools over HTTP MCP transport
+  # ─────────────────────────────────────────────────────────────────────────────
+  ado-mcp:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eatap-ado-mcp
+    command: uvicorn mcp.servers.ado_server:app --host 0.0.0.0 --port 8001 --workers 2
+    ports:
+      - "8001:8001"
+    environment:
+      - ADO_ORGANIZATION=${ADO_ORGANIZATION}
+      - ADO_PROJECT=${ADO_PROJECT}
+      - ADO_PAT=${ADO_PAT}
+      - ADO_API_VERSION=${ADO_API_VERSION:-7.2-preview.3}
+      - APP_SECRET_KEY=${APP_SECRET_KEY:-dev-secret-key-must-be-32-chars-!!}
+      - DATABASE_URL=postgresql+asyncpg://eatap:eatap_password@postgres:5432/eatap_db
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ./mcp:/app/mcp
+      - ./backend/app:/app/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - eatap-network
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Knowledge Base MCP Server — owns Azure Search/OpenAI keys; exposes RAG tools
+  # ─────────────────────────────────────────────────────────────────────────────
+  kb-mcp:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: eatap-kb-mcp
+    command: uvicorn mcp.servers.knowledge_server:app --host 0.0.0.0 --port 8002 --workers 2
+    ports:
+      - "8002:8002"
+    environment:
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_EMBEDDING_DEPLOYMENT=${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:-text-embedding-3-large}
+      - AZURE_OPENAI_MINI_DEPLOYMENT=${AZURE_OPENAI_MINI_DEPLOYMENT:-gpt-4o-mini}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-08-01-preview}
+      - AZURE_SEARCH_ENDPOINT=${AZURE_SEARCH_ENDPOINT}
+      - AZURE_SEARCH_API_KEY=${AZURE_SEARCH_API_KEY}
+      - AZURE_SEARCH_INDEX_NAME=${AZURE_SEARCH_INDEX_NAME:-eatap-knowledge-base}
+      - COHERE_API_KEY=${COHERE_API_KEY:-}
+      - REDIS_URL=redis://redis:6379/0
+      - ENABLE_SEMANTIC_CACHE=true
+      - APP_SECRET_KEY=${APP_SECRET_KEY:-dev-secret-key-must-be-32-chars-!!}
+      - DATABASE_URL=postgresql+asyncpg://eatap:eatap_password@postgres:5432/eatap_db
+    volumes:
+      - ./mcp:/app/mcp
+      - ./rag:/app/rag
+      - ./backend/app:/app/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - eatap-network
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Frontend
+  # ─────────────────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: eatap-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000
+      - VITE_AZURE_CLIENT_ID=${AZURE_CLIENT_ID}
+      - VITE_AZURE_TENANT_ID=${AZURE_TENANT_ID}
+      - VITE_AZURE_AUDIENCE=${AZURE_AUDIENCE}
+    volumes:
+      - ./frontend/src:/app/src
+    networks:
+      - eatap-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # PostgreSQL 16 + pgvector
+  # ─────────────────────────────────────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: eatap-postgres
+    environment:
+      POSTGRES_USER: eatap
+      POSTGRES_PASSWORD: eatap_password
+      POSTGRES_DB: eatap_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eatap -d eatap_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eatap-network
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Redis 7
+  # ─────────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: eatap-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eatap-network
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Observability — Jaeger (distributed tracing)
+  # ─────────────────────────────────────────────────────────────────────────────
+  jaeger:
+    image: jaegertracing/all-in-one:1.60
+    container_name: eatap-jaeger
+    ports:
+      - "16686:16686"   # Jaeger UI
+      - "4317:4317"     # OTLP gRPC
+      - "4318:4318"     # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - eatap-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  eatap-network:
+    driver: bridge
