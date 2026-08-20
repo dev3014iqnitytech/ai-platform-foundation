@@ -1,0 +1,32 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# k8s/configmap.yaml — Aegis AI Non-Secret Configuration
+# ═══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aegis-ai-config
+  namespace: aegis-system
+data:
+  gcp_project_id: "YOUR_GCP_PROJECT_ID"
+  otel_endpoint: "http://otel-collector.monitoring:4317"
+
+---
+# ── ConfigMap for envs/ directory ─────────────────────────────────────────────
+# Mount the production env file into the container at /app/envs/
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aegis-ai-env-files
+  namespace: aegis-system
+data:
+  .env.production: |
+    # Production env defaults — loaded automatically when AEGIS_ENV=production
+    # Secrets come from GCP Secret Manager, not this file.
+    AEGIS__GCP__USE_GCP=true
+    AEGIS__RATE_LIMIT__BACKEND=redis
+    AEGIS__TLS__MINIMUM_VERSION=TLSv1.3
+    AEGIS__TLS__VERIFY_CERTIFICATES=true
+    AEGIS__AUDIT__USE_GCP_LOGGING=true
+    AEGIS__GUARDRAILS__FAIL_OPEN=false
+    AEGIS__MFA__REQUIRE_MFA=true

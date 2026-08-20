@@ -1,0 +1,31 @@
+# ─── Client App (Agent A) — Python Dependencies ───────────────────────────────
+# Install: pip install -r requirements.txt
+#
+# Covers: main.py (FastAPI service), agent_a.py (SSO CLI), auth_client.py (auth client)
+# Versions are pinned to minimum known-good releases.
+# Pin to exact versions in production (pip-compile recommended).
+# ──────────────────────────────────────────────────────────────────────────────
+
+# HTTP client — async + sync
+httpx>=0.27.0
+
+# JWT signing & verification
+PyJWT[crypto]>=2.8.0
+
+# Cryptography primitives (RSA key generation, PEM serialization)
+cryptography>=42.0.0
+
+# FastAPI web framework
+fastapi>=0.111.0
+
+# ASGI server (standard extras: websockets + httptools for performance)
+uvicorn[standard]>=0.29.0
+
+# Pydantic v2 settings (loads config from env / .env files)
+pydantic-settings>=2.2.0
+
+# Structured logging (consistent with Aegis SDK)
+structlog>=24.1.0
+
+# .env file support for local development
+python-dotenv>=1.0.0

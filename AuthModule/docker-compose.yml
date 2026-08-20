@@ -1,0 +1,130 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# docker-compose.yml — Production Ready
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Production standalone stack with Redis rate-limiting and secure settings.
+# Source code is NOT mounted as a volume; it uses the built Docker image.
+#
+# Usage:
+#   docker-compose build               # Build the production image
+#   docker-compose up -d               # Start in detached mode
+#   docker-compose logs -f aegis-ai    # Follow API logs
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Aegis AI Gateway
+  # ─────────────────────────────────────────────────────────────────────────────
+  aegis-ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    image: aegis-ai:prod
+    container_name: aegis-ai-prod
+    restart: always
+    environment:
+      # ── Environment ──────────────────────────────────────────────────────────
+      AEGIS_ENV: production
+      HOST: "0.0.0.0"
+      PORT: "8080"
+      WORKERS: "${WORKERS:-4}"
+      LOG_LEVEL: info
+
+      # ── Rate limiting: Redis ─────────────────────────────────────────────────
+      AEGIS__RATE_LIMIT__BACKEND: redis
+      AEGIS__RATE_LIMIT__REDIS_URL: redis://redis:6379/0
+
+      # ── LLM Provider API Keys (Set these in .env) ────────────────────────────
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+
+      # ── TLS / Security ───────────────────────────────────────────────────────
+      AEGIS__TLS__MINIMUM_VERSION: TLSv1.3
+      AEGIS__TLS__VERIFY_CERTIFICATES: "true"
+
+      # ── Audit ────────────────────────────────────────────────────────────────
+      # Enable if using GCP Logging or Splunk in production
+      AEGIS__AUDIT__USE_GCP_LOGGING: "false"
+
+      # ── CORS & Hosts ─────────────────────────────────────────────────────────
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-*}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    ports:
+      - "8080:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:8080/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    networks:
+      - aegis-net
+    
+    # ── Security & Hardening ───────────────────────────────────────────────────
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    tmpfs:
+      - /tmp/aegis-ai:size=128m,mode=1770,uid=1001,gid=1001
+    
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Redis — Rate Limiting & Session Cache
+  # ─────────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7.4-alpine
+    container_name: aegis-redis-prod
+    restart: always
+    command: >
+      redis-server
+        --save 60 1
+        --loglevel warning
+        --maxmemory 512mb
+        --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-prod-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    networks:
+      - aegis-net
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Networks & Volumes
+# ─────────────────────────────────────────────────────────────────────────────
+networks:
+  aegis-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+volumes:
+  redis-prod-data:
+    driver: local

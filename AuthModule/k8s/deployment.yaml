@@ -1,0 +1,289 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# k8s/deployment.yaml — Aegis AI Security Gateway Kubernetes Deployment
+# ═══════════════════════════════════════════════════════════════════════════════
+# Apply:
+#   kubectl apply -k k8s/
+# Or directly:
+#   kubectl apply -f k8s/deployment.yaml
+#
+# Replace ${IMAGE_TAG} and ${GCP_PROJECT_ID} with real values or use kustomize.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aegis-ai
+  namespace: aegis-system
+  labels:
+    app: aegis-ai
+    version: "1.2.0"
+    component: gateway
+    managed-by: kubectl
+  annotations:
+    description: "Aegis AI Security Gateway — OWASP LLM Top 10 compliance"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: aegis-ai
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0        # Always keep full capacity during rollout
+  template:
+    metadata:
+      labels:
+        app: aegis-ai
+        version: "1.2.0"
+      annotations:
+        # Prometheus scraping
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+        # Restart pods when ConfigMap changes (via checksum annotation)
+        checksum/config: "placeholder-replace-with-configmap-hash"
+    spec:
+      # ── GCP Workload Identity ──────────────────────────────────────────────
+      serviceAccountName: aegis-ai-sa   # Must have roles/secretmanager.secretAccessor
+
+      # ── Security Context (Pod) ─────────────────────────────────────────────
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+
+      # ── Tolerations & Affinity ─────────────────────────────────────────────
+      # Prefer separate nodes for HA; allow same zone fallback
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: aegis-ai
+                topologyKey: kubernetes.io/hostname
+
+      # ── Containers ────────────────────────────────────────────────────────
+      containers:
+        - name: aegis-ai
+          image: us-central1-docker.pkg.dev/${GCP_PROJECT_ID}/aegis-ai/aegis-ai:${IMAGE_TAG}
+          imagePullPolicy: Always
+
+          # ── Ports ────────────────────────────────────────────────────────
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+
+          # ── Environment ──────────────────────────────────────────────────
+          env:
+            - name: AEGIS_ENV
+              value: production
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "8080"
+            - name: WORKERS
+              value: "2"
+            - name: LOG_LEVEL
+              value: info
+            - name: AEGIS__GCP__USE_GCP
+              value: "true"
+            - name: AEGIS__GCP__PROJECT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: aegis-ai-config
+                  key: gcp_project_id
+            - name: AEGIS__RATE_LIMIT__BACKEND
+              value: redis
+            - name: AEGIS__RATE_LIMIT__REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: aegis-ai-secrets
+                  key: redis_url
+            - name: AEGIS__TLS__MINIMUM_VERSION
+              value: TLSv1.3
+            - name: AEGIS__TLS__VERIFY_CERTIFICATES
+              value: "true"
+            - name: AEGIS__AUDIT__USE_GCP_LOGGING
+              value: "true"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              valueFrom:
+                configMapKeyRef:
+                  name: aegis-ai-config
+                  key: otel_endpoint
+            - name: OTEL_SERVICE_NAME
+              value: aegis-ai-prod
+            # GCP Workload Identity: no GOOGLE_APPLICATION_CREDENTIALS needed
+            # (automatically provided by the Workload Identity admission webhook)
+
+          # ── Resource Limits ───────────────────────────────────────────────
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+
+          # ── Probes ───────────────────────────────────────────────────────
+          startupProbe:
+            httpGet:
+              path: /health/startup
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12     # Allow 60 s for slow startup (12 × 5 s)
+            successThreshold: 1
+
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 0
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+
+          # ── Security Context (Container) ──────────────────────────────────
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+            runAsNonRoot: true
+            runAsUser: 1001
+
+          # ── Volume Mounts ─────────────────────────────────────────────────
+          volumeMounts:
+            - name: tmp-dir
+              mountPath: /tmp/aegis-ai
+            - name: env-config
+              mountPath: /app/envs
+              readOnly: true
+
+      # ── Volumes ──────────────────────────────────────────────────────────
+      volumes:
+        - name: tmp-dir
+          emptyDir:
+            sizeLimit: 128Mi
+        - name: env-config
+          configMap:
+            name: aegis-ai-env-files
+
+      # ── Graceful termination ──────────────────────────────────────────────
+      terminationGracePeriodSeconds: 45   # Must exceed graceful_timeout (30 s)
+
+---
+# ── Service ───────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: aegis-ai
+  namespace: aegis-system
+  labels:
+    app: aegis-ai
+spec:
+  type: ClusterIP
+  selector:
+    app: aegis-ai
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+
+---
+# ── HorizontalPodAutoscaler ───────────────────────────────────────────────────
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: aegis-ai
+  namespace: aegis-system
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: aegis-ai
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300   # Wait 5 min before scaling down
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+
+---
+# ── PodDisruptionBudget ───────────────────────────────────────────────────────
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: aegis-ai
+  namespace: aegis-system
+spec:
+  minAvailable: 2       # At least 2 pods always available during drain/upgrade
+  selector:
+    matchLabels:
+      app: aegis-ai
+
+---
+# ── Namespace ─────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aegis-system
+  labels:
+    name: aegis-system
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+
+---
+# ── ServiceAccount (for GCP Workload Identity) ────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aegis-ai-sa
+  namespace: aegis-system
+  annotations:
+    # Replace with your GCP service account email
+    iam.gke.io/gcp-service-account: aegis-ai@${GCP_PROJECT_ID}.iam.gserviceaccount.com

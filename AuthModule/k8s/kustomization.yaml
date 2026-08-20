@@ -1,0 +1,39 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# k8s/kustomization.yaml — Kustomize base
+# ═══════════════════════════════════════════════════════════════════════════════
+# Apply all resources:
+#   kubectl apply -k k8s/
+#
+# Create overlays for environment-specific overrides:
+#   k8s/overlays/staging/   → patches for staging (replica count, image tag)
+#   k8s/overlays/production/→ patches for production
+# ═══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: aegis-system
+
+resources:
+  - deployment.yaml
+  - configmap.yaml
+  - ingress.yaml
+
+# Image tag — override in overlays
+images:
+  - name: us-central1-docker.pkg.dev/PROJECT_ID/aegis-ai/aegis-ai
+    newTag: latest    # Override with --set-image or overlay patch
+
+# Common labels applied to all resources
+commonLabels:
+  app.kubernetes.io/name: aegis-ai
+  app.kubernetes.io/version: "1.2.0"
+  app.kubernetes.io/managed-by: kustomize
+  app.kubernetes.io/component: gateway
+
+# ConfigMap generators (auto-hash suffix for rollout on change)
+configMapGenerator: []
+
+# Secret generators — use External Secrets Operator or Google Secret Manager CSI
+# instead of generating secrets from files in this directory.
+# secretGenerator: []

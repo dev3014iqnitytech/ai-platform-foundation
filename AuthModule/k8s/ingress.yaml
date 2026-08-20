@@ -1,0 +1,66 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# k8s/ingress.yaml — Aegis AI Ingress (GKE / NGINX)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Choose ONE ingress class below based on your cluster:
+#   - GKE:   spec.ingressClassName: gce
+#   - NGINX: spec.ingressClassName: nginx
+# ═══════════════════════════════════════════════════════════════════════════════
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: aegis-ai
+  namespace: aegis-system
+  annotations:
+    # ── GKE-specific ──────────────────────────────────────────────────────────
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.allow-http: "false"           # HTTPS only
+    networking.gke.io/managed-certificates: aegis-ai-cert
+    networking.gke.io/v1beta1.FrontendConfig: aegis-ai-frontend
+
+    # ── NGINX alternative (uncomment for NGINX) ───────────────────────────────
+    # kubernetes.io/ingress.class: "nginx"
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    # nginx.ingress.kubernetes.io/proxy-body-size: "1m"
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "120"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "120"
+    # nginx.ingress.kubernetes.io/limit-rps: "100"
+
+spec:
+  ingressClassName: gce
+  rules:
+    - host: api.aegis-ai.example.com     # ← Replace with your domain
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: aegis-ai
+                port:
+                  name: http
+
+---
+# ── GKE Managed Certificate ────────────────────────────────────────────────────
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: aegis-ai-cert
+  namespace: aegis-system
+spec:
+  domains:
+    - api.aegis-ai.example.com             # ← Replace with your domain
+
+---
+# ── GKE FrontendConfig (TLS 1.3 policy) ────────────────────────────────────────
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: aegis-ai-frontend
+  namespace: aegis-system
+spec:
+  sslPolicy: aegis-tls13-policy           # Create via: gcloud compute ssl-policies create
+  redirectToHttps:
+    enabled: true
+    responseCodeName: MOVED_PERMANENTLY
