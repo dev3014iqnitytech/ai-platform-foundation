@@ -1,0 +1,87 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# .dockerignore — Aegis AI Security Gateway
+# ═══════════════════════════════════════════════════════════════════════════
+# Controls what is sent to the Docker build context.
+# Excluding unnecessary files dramatically speeds up builds and reduces
+# the attack surface of the final image.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── Git ──────────────────────────────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# ── Python bytecode / cache ───────────────────────────────────────────────────
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.pyi
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.coverage
+**/htmlcov/
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Build / packaging artifacts ───────────────────────────────────────────────
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
+
+# ── Test directories (NOT included in production image) ───────────────────────
+tests/
+test_*.py
+*_test.py
+conftest.py
+
+# ── Documentation ─────────────────────────────────────────────────────────────
+docs/
+*.md
+!envs/README.md
+
+# ── Local secret files (CRITICAL — never bake into image) ────────────────────
+.env
+.env.*
+!envs/.env.development
+!envs/.env.staging
+!envs/.env.production
+keys/
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+service-account*.json
+*credentials*.json
+
+# ── IDE / editor ──────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Docker files themselves (not needed inside image) ─────────────────────────
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# ── CI / scripts ──────────────────────────────────────────────────────────────
+.github/
+scripts/
+
+# ── Observability artifacts ────────────────────────────────────────────────────
+*.trace
+jaeger-data/
+coverage.xml
+*.junit.xml

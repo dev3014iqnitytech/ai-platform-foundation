@@ -1,0 +1,112 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# docker-compose.staging.yml — Staging Override
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Merges with docker-compose.yml to create the staging stack.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.staging.yml up -d
+#
+# Differences from dev:
+#   - AEGIS_ENV=staging
+#   - GCP enabled (staging project)
+#   - Redis TLS enabled
+#   - No hot-reload volume mount
+#   - No debug tools (Jaeger, Redis Commander)
+#   - Secrets from environment variables (injected by CI/CD)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  aegis-ai:
+    image: ${AEGIS_IMAGE:-aegis-ai}:${IMAGE_TAG:-staging}
+    environment:
+      AEGIS_ENV: staging
+      WORKERS: "2"
+      LOG_LEVEL: info
+
+      # ── GCP Staging ───────────────────────────────────────────────────────────
+      AEGIS__GCP__USE_GCP: "true"
+      AEGIS__GCP__PROJECT_ID: ${GCP_STAGING_PROJECT_ID}
+      AEGIS__GCP__LOCATION: ${GCP_LOCATION:-us-central1}
+
+      # ── Redis (staging single-node with TLS) ──────────────────────────────────
+      AEGIS__RATE_LIMIT__BACKEND: redis
+      AEGIS__RATE_LIMIT__REDIS_URL: ${REDIS_STAGING_URL}
+
+      # ── Secrets via GCP Secret Manager ───────────────────────────────────────
+      AEGIS__JWT__PRIVATE_KEY_SECRET_NAME: aegis-staging-jwt-private-key
+      AEGIS__JWT__PUBLIC_KEY_SECRET_NAME: aegis-staging-jwt-public-key
+
+      # ── LLM Keys from Secret Manager (no local env vars in staging) ───────────
+      OPENAI_API_KEY: ""
+      ANTHROPIC_API_KEY: ""
+
+      # ── Allowed hosts ─────────────────────────────────────────────────────────
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS_STAGING:-*.staging.example.com}
+
+      # ── CORS ──────────────────────────────────────────────────────────────────
+      CORS_ORIGINS: ${CORS_ORIGINS_STAGING:-https://staging.example.com}
+
+      # ── OpenTelemetry ─────────────────────────────────────────────────────────
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_ENDPOINT_STAGING}
+      OTEL_SERVICE_NAME: aegis-ai-staging
+    volumes:
+      # No source code mount in staging — image is immutable
+      - staging-secrets:/secrets:ro
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first    # Blue-green: start new before stopping old
+        failure_action: rollback
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp/aegis-ai:size=64m,mode=1770,uid=1001,gid=1001
+
+  # Jaeger and Redis Commander are NOT included in staging
+  jaeger:
+    deploy:
+      replicas: 0
+
+  redis-commander:
+    deploy:
+      replicas: 0
+
+  redis:
+    command: >
+      redis-server
+        --requirepass ${REDIS_PASSWORD}
+        --tls-port 6380
+        --tls-cert-file /tls/redis.crt
+        --tls-key-file /tls/redis.key
+        --tls-ca-cert-file /tls/ca.crt
+        --loglevel warning
+        --maxmemory 512mb
+        --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+      - redis-tls:/tls:ro
+    ports:
+      - "6380:6380"   # TLS port only (6379 not exposed)
+
+volumes:
+  staging-secrets:
+    external: true
+    name: aegis-staging-secrets
+  redis-tls:
+    external: true
+    name: aegis-redis-tls

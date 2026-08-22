@@ -1,0 +1,112 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# docker-compose.prod.yml — Production Override
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Merges with docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# In real production, use Kubernetes (k8s/) instead of Compose.
+# This file is kept for single-node or VM-based production deployments.
+#
+# Key differences from staging:
+#   - AEGIS_ENV=production
+#   - More workers (scale with CPU)
+#   - Redis cluster (6 nodes)
+#   - GCP Workload Identity (no sa-key.json)
+#   - Splunk HEC audit sink
+#   - Strict resource limits / CPU pinning
+#   - No GOOGLE_APPLICATION_CREDENTIALS (ADC via metadata server)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  aegis-ai:
+    image: ${AEGIS_IMAGE:-aegis-ai}:${IMAGE_TAG}  # IMAGE_TAG must be set — never use 'latest' in prod
+    environment:
+      AEGIS_ENV: production
+      WORKERS: "${WORKERS:-4}"
+      LOG_LEVEL: info
+
+      # ── GCP Production ────────────────────────────────────────────────────────
+      AEGIS__GCP__USE_GCP: "true"
+      AEGIS__GCP__PROJECT_ID: ${GCP_PROD_PROJECT_ID}
+      AEGIS__GCP__LOCATION: ${GCP_LOCATION:-us-central1}
+
+      # ── Redis Cluster ─────────────────────────────────────────────────────────
+      AEGIS__RATE_LIMIT__BACKEND: redis
+      AEGIS__RATE_LIMIT__REDIS_URL: ${REDIS_PROD_URL}
+
+      # ── GCP Workload Identity (no JSON key file) ──────────────────────────────
+      # GOOGLE_APPLICATION_CREDENTIALS is NOT set — ADC via metadata server
+
+      # ── JWT (GCP Secret Manager) ──────────────────────────────────────────────
+      AEGIS__JWT__PRIVATE_KEY_SECRET_NAME: aegis-prod-jwt-private-key
+      AEGIS__JWT__PUBLIC_KEY_SECRET_NAME: aegis-prod-jwt-public-key
+
+      # ── Audit ──────────────────────────────────────────────────────────────────
+      AEGIS__AUDIT__USE_GCP_LOGGING: "true"
+      SPLUNK_HEC_URL: ${SPLUNK_HEC_URL:-}
+      SPLUNK_HEC_TOKEN_SECRET_NAME: aegis-prod-splunk-hec-token
+
+      # ── TLS / Security ────────────────────────────────────────────────────────
+      AEGIS__TLS__MINIMUM_VERSION: TLSv1.3
+      AEGIS__TLS__VERIFY_CERTIFICATES: "true"
+
+      # ── Allowed hosts (comma-separated) ──────────────────────────────────────
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS_PROD}
+
+      # ── CORS ──────────────────────────────────────────────────────────────────
+      CORS_ORIGINS: ${CORS_ORIGINS_PROD}
+
+      # ── OpenTelemetry → Production backend ────────────────────────────────────
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_ENDPOINT_PROD}
+      OTEL_SERVICE_NAME: aegis-ai-prod
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.1"   # Sample 10% of traces in prod
+    volumes:
+      - /dev/null:/secrets/sa-key.json:ro   # Block any accidental key file mount
+    deploy:
+      replicas: ${PROD_REPLICAS:-4}
+      restart_policy:
+        condition: any
+        delay: 10s
+        max_attempts: 5
+        window: 120s
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+      update_config:
+        parallelism: 1
+        delay: 30s
+        order: start-first
+        failure_action: rollback
+        monitor: 60s
+      rollback_config:
+        parallelism: 0    # Rollback all at once
+        order: stop-first
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+      - seccomp:unconfined
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    tmpfs:
+      - /tmp/aegis-ai:size=128m,mode=1770,uid=1001,gid=1001
+
+  # Remove all dev-only services in production
+  jaeger:
+    deploy:
+      replicas: 0
+
+  redis-commander:
+    deploy:
+      replicas: 0
+
+  redis:
+    deploy:
+      replicas: 0   # Use external Redis cluster in production
