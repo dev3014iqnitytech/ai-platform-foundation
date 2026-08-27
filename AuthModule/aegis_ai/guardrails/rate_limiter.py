@@ -33,9 +33,12 @@ logger = structlog.get_logger(__name__)
 class _InMemoryWindow:
     """Single-instance in-memory sliding window per key."""
 
+    _GC_INTERVAL = 100  # Run stale-key cleanup every N requests
+
     def __init__(self) -> None:
         self._windows: Dict[str, Deque[float]] = {}
         self._lock = asyncio.Lock()
+        self._request_count = 0
 
     async def check(self, key: str, limit: int, window_seconds: int) -> RateLimitResult:
         from datetime import datetime, timezone
@@ -50,6 +53,14 @@ class _InMemoryWindow:
             # Evict expired timestamps
             while window and window[0] <= cutoff:
                 window.popleft()
+
+            # Periodic garbage collection of OTHER stale keys
+            self._request_count += 1
+            if self._request_count >= self._GC_INTERVAL:
+                self._request_count = 0
+                stale_keys = [k for k, v in self._windows.items() if not v and k != key]
+                for stale_key in stale_keys:
+                    del self._windows[stale_key]
 
             count = len(window)
             if count >= limit:

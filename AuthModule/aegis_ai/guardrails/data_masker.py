@@ -93,12 +93,14 @@ class DataMasker:
         entity_counters: Dict[str, int] = {}
         entities_found = []
 
-        # Process in reverse order to preserve character positions
-        for entity in sorted(entities, key=lambda e: e.start, reverse=True):
+        # Sort forward (left-to-right) to assign intuitive sequential numbers (e.g. EMAIL_ADDRESS_1, EMAIL_ADDRESS_2)
+        sorted_entities = sorted(entities, key=lambda e: e.start)
+        items_to_replace = []
+
+        for entity in sorted_entities:
             etype = entity.entity_type
             entity_counters[etype] = entity_counters.get(etype, 0) + 1
-
-            original_value = masked_text[entity.start:entity.end]
+            original_value = text[entity.start:entity.end]
 
             if operator == "redact":
                 placeholder = "[REDACTED]"
@@ -107,11 +109,14 @@ class DataMasker:
             else:
                 placeholder = f"<{etype}_{entity_counters[etype]}>"
 
-            masking_map[placeholder] = original_value
-            masked_text = masked_text[:entity.start] + placeholder + masked_text[entity.end:]
-
+            items_to_replace.append((entity, placeholder, original_value))
             if etype not in entities_found:
                 entities_found.append(etype)
+
+        # Apply replacements in reverse order (right-to-left) to preserve character offset indices
+        for entity, placeholder, original_value in sorted(items_to_replace, key=lambda x: x[0].start, reverse=True):
+            masking_map[placeholder] = original_value
+            masked_text = masked_text[:entity.start] + placeholder + masked_text[entity.end:]
 
         logger.info(
             "pii_masked",

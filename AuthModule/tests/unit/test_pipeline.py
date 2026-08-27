@@ -111,6 +111,7 @@ def mock_config(mock_settings):
     cfg.audit_logger.log_guard_rail.return_value = None
     cfg.metrics = MagicMock()
     cfg.tracer = MagicMock()
+    cfg.event_bus = AsyncMock()
     return cfg
 
 

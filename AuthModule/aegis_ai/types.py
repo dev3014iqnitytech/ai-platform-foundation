@@ -40,6 +40,7 @@ class AuthMethod(str, Enum):
     API_KEY = "api_key"
     SERVICE_ACCOUNT = "service_account"
     MFA = "mfa"
+    SYSTEM = "system"
 
 
 class Severity(str, Enum):

@@ -104,7 +104,7 @@ _HOMOGLYPH_THRESHOLD = 3  # Min homoglyphs to flag
 
 # Commonly abused base64 keywords when decoded
 _BASE64_SUSPICIOUS_KEYWORDS = [
-    b"ignore", b"system", b"jailbreak", b"DAN", b"override", b"bypass",
+    b"ignore", b"system", b"jailbreak", b"dan", b"override", b"bypass",
 ]
 
 

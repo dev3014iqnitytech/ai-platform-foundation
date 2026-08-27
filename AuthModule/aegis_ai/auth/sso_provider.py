@@ -18,6 +18,7 @@ from __future__ import annotations
 import time
 import uuid
 from typing import Any, Dict, List, Optional
+from urllib.parse import urlencode
 
 import httpx
 import structlog
@@ -213,7 +214,7 @@ class SSOProvider(AuthProvider):
             "state": state,
             "nonce": nonce,
         }
-        query = "&".join(f"{k}={v}" for k, v in params.items())
+        query = urlencode(params)
         url = f"{self._config.authorize_url}?{query}"
         logger.info(
             "oidc_authorization_url_generated",
@@ -445,8 +446,8 @@ class SSOProvider(AuthProvider):
         sub: str,
         email: str,
         tenant_id: str = "default",
-        roles: list[str] = None,
-        permissions: list[str] = None,
+        roles: Optional[list[str]] = None,
+        permissions: Optional[list[str]] = None,
     ) -> str:
         """Generate a valid signed mock OIDC token for local debugging."""
         import jwt as pyjwt

@@ -17,7 +17,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 from datetime import datetime, timezone
-from typing import Dict, FrozenSet, List
+from typing import Dict, FrozenSet, List, Optional
 
 import structlog
 

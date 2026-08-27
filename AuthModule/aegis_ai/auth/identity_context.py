@@ -42,6 +42,7 @@ class IdentityContext(BaseModel):
         default_factory=lambda: datetime.now(timezone.utc),
         description="When authentication occurred (UTC)",
     )
+    expires_at: Optional[datetime] = Field(None, description="Token expiry time (UTC)")
     session_id: str = Field(..., description="Unique session identifier (UUID string)")
     mfa_verified: bool = Field(False, description="Whether MFA was verified in this session")
 

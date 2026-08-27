@@ -225,7 +225,7 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceededError):
 @app.exception_handler(GuardRailViolationError)
 async def guardrail_handler(request: Request, exc: GuardRailViolationError):
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", 422),
         content={"error": exc.error_code, "message": exc.message, "details": exc.details},
     )
 
@@ -523,7 +523,7 @@ async def auth_token(
     },
 )
 async def auth_me(
-    authorization: str = Header(..., alias="Authorization"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     x_correlation_id: Optional[str] = Header(None, alias="X-Correlation-ID"),
 ):
     """
@@ -543,7 +543,7 @@ async def auth_me(
     if _jwt_handler is None:
         raise HTTPException(status_code=503, detail="Auth service not initialised")
 
-    if not authorization.startswith("Bearer "):
+    if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"error": "invalid_token", "error_description": "Missing Bearer token."},
@@ -566,12 +566,6 @@ async def auth_me(
             headers={"WWW-Authenticate": "Bearer error=\"invalid_token\""},
         )
 
-    # Look up the user to return rich profile information
-    user = next(
-        (u for u in _USER_STORE.values() if u["sub"] == str(identity.identity_id)),
-        None,
-    )
-
     logger.info(
         "auth_me_success",
         sub=str(identity.identity_id),
@@ -580,8 +574,8 @@ async def auth_me(
 
     return UserProfileResponse(
         sub=str(identity.identity_id),
-        email=user["email"] if user else identity.email or "",
-        name=user["name"] if user else str(identity.identity_id),
+        email=identity.email or "",
+        name=identity.email or str(identity.identity_id),
         tenant_id=str(identity.tenant_id),
         roles=sorted(identity.roles) if identity.roles else [],
         permissions=sorted(str(p) for p in identity.permissions),
@@ -601,7 +595,7 @@ async def auth_me(
 )
 async def invoke_agent(
     body: InvokeRequest,
-    authorization: str = Header(..., alias="Authorization"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     x_correlation_id: Optional[str] = Header(None, alias="X-Correlation-ID"),
 ):
     """
@@ -613,6 +607,13 @@ async def invoke_agent(
     """
     if _pipeline is None:
         raise HTTPException(status_code=503, detail="Pipeline not initialised")
+
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "invalid_token", "error_description": "Missing Authorization header."},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     import hashlib
 
@@ -656,7 +657,7 @@ async def invoke_agent(
     tags=["Auth"],
 )
 async def verify_token(
-    authorization: str = Header(..., alias="Authorization"),
+    authorization: Optional[str] = Header(None, alias="Authorization"),
 ):
     """
     Authenticate a token without making an LLM call.
@@ -664,6 +665,13 @@ async def verify_token(
     """
     if _pipeline is None:
         raise HTTPException(status_code=503, detail="Pipeline not initialised")
+
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"error": "invalid_token", "error_description": "Missing Authorization header."},
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     identity = await _pipeline.authenticate_only(authorization)
     return VerifyResponse(

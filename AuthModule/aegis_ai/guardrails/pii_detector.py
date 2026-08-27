@@ -41,7 +41,6 @@ _DEFAULT_ENTITIES = [
     "CRYPTO",
     "US_BANK_NUMBER",
     "US_DRIVER_LICENSE",
-    "ORGANIZATION",
 ]
 
 
@@ -136,6 +135,9 @@ class PIIDetector(GuardRail):
         """
         Detect PII entities in text.
 
+        Combines Presidio NLP detection with regex pattern matching
+        to ensure both standard PII and custom secrets are detected.
+
         Args:
             text: Input text to scan.
 
@@ -145,11 +147,21 @@ class PIIDetector(GuardRail):
         if not text.strip():
             return []
 
+        entities: List[PIIEntity] = []
         analyzer = await self._get_analyzer()
         if analyzer is not None:
-            return await asyncio.to_thread(self._run_presidio, analyzer, text)
-        else:
-            return self._regex_fallback(text)
+            entities.extend(await asyncio.to_thread(self._run_presidio, analyzer, text))
+
+        regex_entities = self._regex_fallback(text)
+        for r_ent in regex_entities:
+            overlap = any(
+                not (r_ent.end <= existing.start or r_ent.start >= existing.end)
+                for existing in entities
+            )
+            if not overlap:
+                entities.append(r_ent)
+
+        return sorted(entities, key=lambda e: e.start)
 
     @staticmethod
     def _run_presidio(analyzer: object, text: str) -> List[PIIEntity]:
@@ -186,10 +198,10 @@ class PIIDetector(GuardRail):
             ("US_SSN", r"\b\d{3}-\d{2}-\d{4}\b"),
             ("IP_ADDRESS", r"\b(?:\d{1,3}\.){3}\d{1,3}\b"),
             ("MEDICAL_RECORD", r"(?i)\bPatient\s+ID:\s*[\w-]+\b|Diagnosis:\s*[\w\s]+"),
-            ("API_KEY", r"(?i)\bAPI\s+Key:\s*[a-zA-Z0-9_-]+\b"),
+            ("API_KEY", r"(?i)\bAPI\s+Key:\s*[a-zA-Z0-9._-]+\b|sk-[a-zA-Z0-9_-]+"),
             ("PASSWORD", r"(?i)\bPassword:\s*\S+"),
             ("AWS_SECRET", r"(?i)\bAWS\s+Secret:\s*\S+"),
-            ("BEARER_TOKEN", r"(?i)\bBearer\s+token:\s*\S+"),
+            ("BEARER_TOKEN", r"(?i)\bBearer\s+(?:token:?\s*)?\S+"),
         ]
         for entity_type, pattern in patterns:
             for m in re.finditer(pattern, text):

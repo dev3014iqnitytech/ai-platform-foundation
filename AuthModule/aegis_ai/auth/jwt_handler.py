@@ -305,6 +305,7 @@ class JWTHandler(AuthProvider):
                 email=claims.email,
                 auth_method=AuthMethod(claims.auth_method),
                 auth_time=datetime.fromtimestamp(claims.iat, tz=timezone.utc),
+                expires_at=datetime.fromtimestamp(claims.exp, tz=timezone.utc),
                 session_id=claims.session_id,
                 mfa_verified=claims.mfa_verified,
                 roles=frozenset(claims.roles),
@@ -441,77 +442,19 @@ class JWTHandler(AuthProvider):
         Verify a JWT and return (IdentityContext, jti).
 
         Used internally by refresh_tokens() to avoid a second unverified decode.
-        The jti is extracted from the already-verified payload inside verify_token,
-        so no signature bypass is needed.
+        After verify_token() confirms the token's cryptographic validity, we
+        extract the jti via an unverified decode — safe because the signature
+        was already verified.
         """
-        # Inline the verification to get access to the raw claims
-        try:
-            unverified_header = jwt.get_unverified_header(token)
-        except Exception as exc:
-            raise TokenInvalidError("Malformed JWT header") from exc
-
-        alg = unverified_header.get("alg", "none")
-        if alg.lower() == "none" or alg not in _ALLOWED_ALGORITHMS:
-            raise TokenInvalidError(f"Rejected JWT algorithm '{alg}'.")
-
-        kid = unverified_header.get("kid", self._current_kid)
-        if kid not in self._key_cache:
-            raise TokenInvalidError(f"JWT contains unknown kid '{kid}'.")
-
-        # Check revocation
-        try:
-            unverified_payload = jwt.decode(
-                token,
-                options={"verify_signature": False},
-                algorithms=_ALLOWED_ALGORITHMS,
-            )
-        except Exception as exc:
-            raise TokenInvalidError("Cannot decode JWT payload") from exc
-
-        jti = unverified_payload.get("jti", "")
-        if jti and self._is_revoked(jti):
-            raise TokenInvalidError("Token has been revoked")
-
-        public_key = self._get_public_key(kid)
-        try:
-            payload = jwt.decode(
-                token,
-                public_key,
-                algorithms=[self._settings.jwt.algorithm],
-                audience=self._settings.jwt.audience,
-                issuer=self._settings.jwt.issuer,
-                options={
-                    "require": ["sub", "iss", "aud", "exp", "iat", "jti"],
-                    "verify_exp": True,
-                    "verify_nbf": True,
-                    "verify_iat": True,
-                    "verify_aud": True,
-                    "verify_iss": True,
-                },
-            )
-        except jwt.ExpiredSignatureError as exc:
-            raise TokenExpiredError("JWT has expired") from exc
-        except jwt.InvalidAudienceError as exc:
-            raise TokenInvalidError("JWT audience mismatch") from exc
-        except jwt.InvalidIssuerError as exc:
-            raise TokenInvalidError("JWT issuer mismatch") from exc
-        except Exception as exc:
-            raise TokenInvalidError("JWT verification failed") from exc
-
-        claims = JWTClaims(**payload)
-        identity = IdentityContext(
-            identity_id=UserID(claims.sub),
-            agent_id=claims.agent_id,
-            tenant_id=TenantID(claims.tenant_id),
-            email=claims.email,
-            auth_method=AuthMethod(claims.auth_method),
-            auth_time=datetime.fromtimestamp(claims.iat, tz=timezone.utc),
-            session_id=claims.session_id,
-            mfa_verified=claims.mfa_verified,
-            roles=frozenset(claims.roles),
-            permissions=frozenset(Permission(p) for p in claims.permissions),
+        identity = self.verify_token(token)
+        # Token is now cryptographically verified; safe to extract jti without
+        # a second expensive signature verification.
+        unverified_payload = jwt.decode(
+            token,
+            options={"verify_signature": False},
+            algorithms=_ALLOWED_ALGORITHMS,
         )
-        return identity, claims.jti
+        return identity, unverified_payload.get("jti", "")
 
     def _is_revoked(self, jti: str) -> bool:
         """Synchronous revocation check (in-memory fallback)."""

@@ -49,6 +49,7 @@ class Environment(str, Enum):
     DEVELOPMENT = "development"
     STAGING = "staging"
     PRODUCTION = "production"
+    TEST = "test"
 
     def is_production(self) -> bool:
         return self == Environment.PRODUCTION
@@ -57,7 +58,10 @@ class Environment(str, Enum):
         return self == Environment.STAGING
 
     def is_development(self) -> bool:
-        return self == Environment.DEVELOPMENT
+        return self in (Environment.DEVELOPMENT, Environment.TEST)
+
+    def is_test(self) -> bool:
+        return self == Environment.TEST
 
 
 def _resolve_env_files() -> List[str]:

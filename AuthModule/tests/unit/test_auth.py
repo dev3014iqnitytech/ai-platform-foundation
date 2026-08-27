@@ -173,11 +173,9 @@ class TestJWTHandler:
     def test_verify_expired_token_raises_token_expired_error(
         self, jwt_handler, sample_identity
     ):
-        with freeze_time("2020-01-01"):
-            token = jwt_handler.create_access_token(sample_identity, expire_minutes=15)
-        with freeze_time("2020-01-02"):  # 1 day later
-            with pytest.raises(TokenExpiredError):
-                jwt_handler.verify_token(token)
+        token = jwt_handler.create_access_token(sample_identity, expire_minutes=-60)
+        with pytest.raises(TokenExpiredError):
+            jwt_handler.verify_token(token)
 
     def test_verify_tampered_token_raises_token_invalid_error(
         self, jwt_handler, sample_identity

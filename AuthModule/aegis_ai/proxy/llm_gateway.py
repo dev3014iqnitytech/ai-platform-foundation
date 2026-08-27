@@ -222,10 +222,14 @@ class _GeminiAdapter:
 
         url = (
             f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{request.model}:generateContent?key={api_key}"
+            f"{request.model}:generateContent"
         )
 
-        resp = await client.post(url, json=body)
+        resp = await client.post(
+            url,
+            json=body,
+            headers={"X-Goog-Api-Key": api_key},
+        )
         resp.raise_for_status()
         data = resp.json()
         latency = (time.monotonic() - start) * 1000
@@ -308,13 +312,13 @@ class LLMGateway:
         last_error: Optional[Exception] = None
 
         async with self._tls.get_client(timeout=timeout) as client:
-            for attempt in range(1, max_retries + 1):
+            for attempt in range(max_retries + 1):
                 try:
                     logger.info(
                         "llm_request_attempt",
                         provider=provider,
                         model=request.model,
-                        attempt=attempt,
+                        attempt=attempt + 1,
                     )
                     response = await adapter.invoke(
                         client=client,
@@ -346,17 +350,17 @@ class LLMGateway:
 
                 if attempt < max_retries:
                     # Exponential backoff with jitter
-                    delay = (2 ** attempt) + random.uniform(0, 1)
+                    delay = (2 ** (attempt + 1)) + random.uniform(0, 1)
                     logger.warning(
                         "llm_request_retry",
-                        attempt=attempt,
+                        attempt=attempt + 1,
                         delay_s=round(delay, 2),
                         error=str(last_error),
                     )
                     await asyncio.sleep(delay)
 
         raise LLMGatewayError(
-            f"LLM call failed after {max_retries} attempts",
+            f"LLM call failed after {max_retries + 1} attempts",
             details={"provider": provider, "error": str(last_error)},
         )
 

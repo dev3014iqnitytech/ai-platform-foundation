@@ -162,9 +162,9 @@ def require_permission(permission: str, resource_arg: str = "resource") -> Calla
                 resource=resource,
             )
 
-            # Check via RBAC (fast, synchronous) — IAM check happens in pipeline
-            rbac_roles: List[str] = getattr(identity, "roles", [])
-            if not any(permission in r for r in rbac_roles):
+            # Check via permissions set (fast, synchronous) — IAM check happens in pipeline
+            identity_permissions = set(getattr(identity, "permissions", frozenset()))
+            if permission not in identity_permissions:
                 log.warning(
                     "permission_denied_decorator",
                     fn=fn.__name__,

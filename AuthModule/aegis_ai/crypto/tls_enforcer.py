@@ -97,14 +97,8 @@ class TLSEnforcer:
             except ssl.SSLError:
                 logger.warning("tls_cipher_set_failed", note="Using platform defaults")
 
-        # Belt-and-suspenders: block SSLv2/v3 explicitly (minimum_version already does this).
-        # OP_NO_TLSv1/TLSv1_1 intentionally omitted — deprecated in Python 3.12+ and
-        # already blocked by minimum_version = TLSv1_2 above.
-        for opt_name in ("OP_NO_SSLv2", "OP_NO_SSLv3"):
-            opt = getattr(ssl, opt_name, None)
-            if opt is not None:
-                ctx.options |= opt
-        ctx.options |= ssl.OP_NO_COMPRESSION  # Prevent CRIME attack
+        # Enforce no compression to prevent CRIME attack
+        ctx.options |= ssl.OP_NO_COMPRESSION
 
         logger.debug("tls_ssl_context_created", min_version="TLSv1.2")
         return ctx

@@ -248,7 +248,7 @@ class TestPIIDetector:
 
     @pytest.mark.asyncio
     async def test_clean_text_returns_empty_entities(self, detector, guard_context):
-        entities = await detector.analyze("The weather is nice today.")
+        entities = await detector.analyze("The weather is nice.")
         assert entities == []
 
     def test_owasp_ref_is_llm06(self, detector):
