@@ -1,0 +1,54 @@
+{
+  "quote": {
+    "quoteNumber": "QT-2026-00125",
+    "quoteDate": "2026-10-08",
+    "validUntil": "2026-10-22"
+  },
+  "customer": {
+    "name": "John Smith",
+    "company": "ABC Farms",
+    "address": "123 Farm Road, Manchester",
+    "email": "john.smith@example.com",
+    "phone": "+44 7700 900123"
+  },
+  "product": {
+    "brand": "Fendt",
+    "model": "Fendt 724 Vario",
+    "series": "700 Vario",
+    "configuration": "ProfiPlus",
+    "serialNumber": "F724-2026-001",
+    "image": "assets/product_placeholder.png"
+  },
+  "options": [
+    {
+      "code": "OPT-001",
+      "description": "Front Loader",
+      "price": 12500
+    },
+    {
+      "code": "OPT-002",
+      "description": "Front PTO",
+      "price": 4200
+    },
+    {
+      "code": "OPT-003",
+      "description": "GPS Guidance System",
+      "price": 8900
+    }
+  ],
+  "pricing": {
+    "basePrice": 145000,
+    "optionsPrice": 25600,
+    "discount": 8500,
+    "tax": 32420,
+    "totalPrice": 194520,
+    "currency": "EUR"
+  },
+  "dealer": {
+    "name": "Example Fendt Dealer",
+    "address": "Manchester, UK",
+    "contactPerson": "David Wilson",
+    "phone": "+44 161 1234567",
+    "email": "sales@exampledealer.com"
+  }
+}

@@ -1,0 +1,251 @@
+# Template Mapping Configuration for Dealer Quote v1
+# ======================================================
+# This file defines how JSON quote fields map to PDF coordinates.
+# Each dealer can have their own mapping YAML without changing application code.
+#
+# Coordinate system: PDF points from bottom-left (ReportLab convention)
+# Page numbers: 1-indexed (page 1 = first page)
+# Colors: RGB tuples 0-1 range, e.g. (0, 0, 0) = black
+# ======================================================
+
+template_name: dealer_quote_v1
+version: "1.0"
+description: "Default dealer quote template mapping — Fendt style"
+
+# Default font settings (overridable per field)
+defaults:
+  font: Helvetica
+  font_size: 10
+  color: [0, 0, 0]        # RGB black
+  bold: false
+
+fields:
+
+  # ── QUOTE INFO ──────────────────────────────────────────────────────
+  quote_number:
+    source: quote.quoteNumber
+    page: 1
+    x: 420
+    y: 750
+    font_size: 9
+    bold: false
+    color: [0.2, 0.2, 0.2]
+
+  quote_date:
+    source: quote.quoteDate
+    page: 1
+    x: 420
+    y: 735
+    font_size: 9
+    bold: false
+    color: [0.2, 0.2, 0.2]
+
+  quote_valid_until:
+    source: quote.validUntil
+    page: 1
+    x: 420
+    y: 720
+    font_size: 9
+    bold: false
+    color: [0.2, 0.2, 0.2]
+
+  # ── CUSTOMER INFORMATION ────────────────────────────────────────────
+  customer_name:
+    source: customer.name
+    page: 1
+    x: 50
+    y: 660
+    font_size: 11
+    bold: true
+    color: [0, 0, 0]
+
+  customer_company:
+    source: customer.company
+    page: 1
+    x: 50
+    y: 645
+    font_size: 10
+    bold: false
+
+  customer_address:
+    source: customer.address
+    page: 1
+    x: 50
+    y: 630
+    font_size: 10
+
+  customer_email:
+    source: customer.email
+    page: 1
+    x: 50
+    y: 615
+    font_size: 10
+
+  customer_phone:
+    source: customer.phone
+    page: 1
+    x: 50
+    y: 600
+    font_size: 10
+
+  # ── PRODUCT INFORMATION ─────────────────────────────────────────────
+  product_brand:
+    source: product.brand
+    page: 1
+    x: 50
+    y: 530
+    font_size: 11
+    bold: true
+
+  product_model:
+    source: product.model
+    page: 1
+    x: 50
+    y: 515
+    font_size: 12
+    bold: true
+    color: [0.0, 0.3, 0.6]
+
+  product_series:
+    source: product.series
+    page: 1
+    x: 50
+    y: 500
+    font_size: 10
+
+  product_configuration:
+    source: product.configuration
+    page: 1
+    x: 50
+    y: 485
+    font_size: 10
+
+  product_serial:
+    source: product.serialNumber
+    page: 1
+    x: 50
+    y: 470
+    font_size: 9
+    color: [0.4, 0.4, 0.4]
+
+  # ── PRICING SUMMARY ─────────────────────────────────────────────────
+  pricing_base:
+    source: pricing.basePrice
+    page: 1
+    x: 450
+    y: 370
+    font_size: 10
+    format: currency
+
+  pricing_options:
+    source: pricing.optionsPrice
+    page: 1
+    x: 450
+    y: 355
+    font_size: 10
+    format: currency
+
+  pricing_discount:
+    source: pricing.discount
+    page: 1
+    x: 450
+    y: 340
+    font_size: 10
+    format: currency
+    color: [0.7, 0.0, 0.0]
+
+  pricing_tax:
+    source: pricing.tax
+    page: 1
+    x: 450
+    y: 325
+    font_size: 10
+    format: currency
+
+  pricing_total:
+    source: pricing.totalPrice
+    page: 1
+    x: 450
+    y: 300
+    font_size: 13
+    bold: true
+    format: currency
+    color: [0.0, 0.3, 0.6]
+
+  pricing_currency:
+    source: pricing.currency
+    page: 1
+    x: 380
+    y: 300
+    font_size: 10
+    bold: true
+
+  # ── DEALER INFORMATION ──────────────────────────────────────────────
+  dealer_name:
+    source: dealer.name
+    page: 1
+    x: 50
+    y: 80
+    font_size: 10
+    bold: true
+
+  dealer_contact:
+    source: dealer.contactPerson
+    page: 1
+    x: 50
+    y: 67
+    font_size: 9
+
+  dealer_phone:
+    source: dealer.phone
+    page: 1
+    x: 50
+    y: 54
+    font_size: 9
+
+  dealer_email:
+    source: dealer.email
+    page: 1
+    x: 50
+    y: 41
+    font_size: 9
+
+# ── OPTIONS TABLE ────────────────────────────────────────────────────
+options_table:
+  page: 1
+  start_x: 50
+  start_y: 420
+  row_height: 18
+  max_rows: 10            # If more rows, document them; no silent overflow
+  columns:
+    code:
+      label: "Code"
+      x_offset: 0
+      width: 80
+      font_size: 9
+    description:
+      label: "Description"
+      x_offset: 85
+      width: 200
+      font_size: 9
+    price:
+      label: "Price"
+      x_offset: 295
+      width: 100
+      font_size: 9
+      format: currency
+      align: right
+  header:
+    font_size: 9
+    bold: true
+    color: [1, 1, 1]
+    background: [0.0, 0.3, 0.6]
+
+# ── PRODUCT IMAGE ────────────────────────────────────────────────────
+product_image:
+  source: product.image
+  page: 1
+  x: 310
+  y: 460
+  width: 240
+  height: 160
