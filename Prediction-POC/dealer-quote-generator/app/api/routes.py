@@ -55,7 +55,23 @@ async def health() -> JSONResponse:
     return JSONResponse({"status": "healthy", "service": "dealer-quote-generator"})
 
 
-# ── Mock quote ────────────────────────────────────────────────────────────────
+# ── Mock quotes / Available Quotes ───────────────────────────────────────────
+
+
+@router.get(
+    "/quotes",
+    summary="List available quote numbers from mock data",
+    tags=["Demo"],
+)
+@router.get(
+    "/api/quotes",
+    summary="List available quote numbers from mock data",
+    tags=["Demo"],
+)
+async def list_quotes() -> JSONResponse:
+    """Return the collection of available quoteNumber keys for frontend selection."""
+    quotes = _get_service().list_mock_quote_numbers()
+    return JSONResponse({"quotes": quotes})
 
 
 @router.get(
@@ -63,10 +79,12 @@ async def health() -> JSONResponse:
     summary="Return the bundled mock quote JSON",
     tags=["Demo"],
 )
-async def mock_quote() -> JSONResponse:
-    """Useful for testing: returns the pre-built mock quote response."""
+async def mock_quote(
+    quote_number: Optional[str] = None,
+) -> JSONResponse:
+    """Useful for testing: returns the pre-built mock quote response matching quote_number or default."""
     try:
-        data = _get_service().load_mock_quote()
+        data = _get_service().load_mock_quote(quote_number)
         return JSONResponse(data)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc))
@@ -249,10 +267,12 @@ async def generate_quote(
 async def demo_quote(
     file: UploadFile = File(..., description="Dealer PDF template"),
     template_name: str = Form(default=DEFAULT_TEMPLATE),
+    quote_number: Optional[str] = Form(default=None, description="Selected quote sequence"),
 ) -> Response:
     """
     Shortcut for demos: upload only the PDF template; the mock quote
-    JSON is loaded automatically from ``mock/quote_response.json``.
+    JSON is loaded automatically from ``mock/quote_response.json``
+    filtered by quote_number if specified.
     """
     if not file.filename or not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files accepted")
@@ -261,7 +281,7 @@ async def demo_quote(
     svc = _get_service()
 
     try:
-        quote_data = svc.load_mock_quote()
+        quote_data = svc.load_mock_quote(quote_number)
         result_bytes = svc.generate(pdf_bytes, quote_data, template_name)
     except Exception as exc:
         logger.exception("Demo quote generation failed")
@@ -270,5 +290,8 @@ async def demo_quote(
     return Response(
         content=result_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": 'attachment; filename="demo_quote.pdf"'},
+        headers={
+            "Content-Disposition": 'attachment; filename="demo_quote.pdf"',
+            "X-Quote-Number": quote_data.get("quote", {}).get("quoteNumber", ""),
+        },
     )

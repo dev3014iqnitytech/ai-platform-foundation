@@ -53,6 +53,41 @@ def test_mock_quote_returns_json(client):
     assert "pricing" in data
 
 
+def test_list_quotes_endpoint(client):
+    """Test /quotes and /api/quotes endpoints for dropdown menu population."""
+    resp = client.get("/quotes")
+    assert resp.status_code == 200
+    quotes = resp.json().get("quotes")
+    assert isinstance(quotes, list)
+    assert len(quotes) == 3
+    assert "QT-2026-001" in quotes
+    assert "QT-2026-002" in quotes
+    assert "QT-2026-003" in quotes
+
+    # Also verify /api/quotes alias
+    resp_api = client.get("/api/quotes")
+    assert resp_api.status_code == 200
+    assert resp_api.json()["quotes"] == quotes
+
+
+def test_mock_quote_filtering_and_fallback(client):
+    """Test filtering mock quote by quote_number and fallback behavior."""
+    resp1 = client.get("/mock-quote?quote_number=QT-2026-002")
+    assert resp1.status_code == 200
+    assert resp1.json()["quote"]["quoteNumber"] == "QT-2026-002"
+    assert resp1.json()["customer"]["name"] == "Emma Watson"
+
+    resp2 = client.get("/mock-quote?quote_number=QT-2026-003")
+    assert resp2.status_code == 200
+    assert resp2.json()["quote"]["quoteNumber"] == "QT-2026-003"
+    assert resp2.json()["customer"]["name"] == "Marcus Vance"
+
+    # Fallback when unknown quoteNumber provided
+    resp_fallback = client.get("/mock-quote?quote_number=QT-UNKNOWN-999")
+    assert resp_fallback.status_code == 200
+    assert resp_fallback.json()["quote"]["quoteNumber"] == "QT-2026-001"
+
+
 # ── Template listing ──────────────────────────────────────────────────────────
 
 
@@ -150,3 +185,16 @@ def test_demo_quote(client, sample_pdf_bytes_module):
     )
     assert resp.status_code == 200
     assert resp.content.startswith(b"%PDF")
+    assert resp.headers.get("X-Quote-Number") == "QT-2026-001"
+
+
+def test_demo_quote_with_quote_number(client, sample_pdf_bytes_module):
+    """Test demo quote when a specific quoteNumber sequence is selected."""
+    resp = client.post(
+        "/demo-quote",
+        files={"file": ("template.pdf", sample_pdf_bytes_module, "application/pdf")},
+        data={"template_name": "dealer_template", "quote_number": "QT-2026-002"},
+    )
+    assert resp.status_code == 200
+    assert resp.content.startswith(b"%PDF")
+    assert resp.headers.get("X-Quote-Number") == "QT-2026-002"

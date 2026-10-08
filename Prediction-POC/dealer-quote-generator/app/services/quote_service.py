@@ -18,7 +18,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from app.models.quote_models import QuoteRequest
 from app.services.pdf_analyzer import PDFAnalysis, PDFAnalyzer
@@ -143,11 +143,45 @@ class QuoteService:
         validate_pdf_bytes(pdf_bytes)
         return self._analyzer.analyze(pdf_bytes)
 
-    def load_mock_quote(self) -> Dict[str, Any]:
-        """Load the bundled mock quote JSON (for demo / testing)."""
+    def load_mock_quote(self, quote_number: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Load the bundled mock quote JSON (for demo / testing).
+        Supports single-record or collection. Filters by quote_number with fallback.
+        """
         mock_path = self._root / "mock" / "quote_response.json"
         with open(mock_path, "r", encoding="utf-8") as fh:
-            return json.load(fh)
+            raw_data = json.load(fh)
+
+        if isinstance(raw_data, list):
+            if not raw_data:
+                raise ValueError("Mock quote collection is empty.")
+            if quote_number:
+                for item in raw_data:
+                    if item.get("quote", {}).get("quoteNumber") == quote_number:
+                        return item
+                logger.warning(
+                    "Requested quoteNumber '%s' not found in mock data. Falling back to default record '%s'.",
+                    quote_number,
+                    raw_data[0].get("quote", {}).get("quoteNumber"),
+                )
+            return raw_data[0]
+        return raw_data
+
+    def list_mock_quote_numbers(self) -> List[str]:
+        """Extract and return all available quoteNumber keys from the mock data."""
+        mock_path = self._root / "mock" / "quote_response.json"
+        with open(mock_path, "r", encoding="utf-8") as fh:
+            raw_data = json.load(fh)
+        if isinstance(raw_data, list):
+            return [
+                item.get("quote", {}).get("quoteNumber")
+                for item in raw_data
+                if item.get("quote", {}).get("quoteNumber")
+            ]
+        elif isinstance(raw_data, dict):
+            qn = raw_data.get("quote", {}).get("quoteNumber")
+            return [qn] if qn else []
+        return []
 
     def list_templates(self):
         return self._templates.list_templates()

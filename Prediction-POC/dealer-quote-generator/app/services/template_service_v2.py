@@ -432,9 +432,41 @@ class TemplateServiceV2:
             return pdf_path.read_bytes()
         return None
 
-    def load_mock_quote(self) -> Dict[str, Any]:
-        """Loads the mock quote JSON payload for rapid testing and demos."""
+    def load_mock_quote(self, quote_number: Optional[str] = None) -> Dict[str, Any]:
+        """Loads the mock quote JSON payload with sequence filtering and fallback."""
         mock_path = self.project_root / "mock" / "quote_response.json"
         if not mock_path.exists():
             raise FileNotFoundError(f"Mock quote file not found at {mock_path}")
-        return json.loads(mock_path.read_text(encoding="utf-8"))
+        raw_data = json.loads(mock_path.read_text(encoding="utf-8"))
+
+        if isinstance(raw_data, list):
+            if not raw_data:
+                raise ValueError("Mock quote collection is empty.")
+            if quote_number:
+                for item in raw_data:
+                    if item.get("quote", {}).get("quoteNumber") == quote_number:
+                        return item
+                logger.warning(
+                    "Quote '%s' not found in mock data. Falling back to default record '%s'.",
+                    quote_number,
+                    raw_data[0].get("quote", {}).get("quoteNumber"),
+                )
+            return raw_data[0]
+        return raw_data
+
+    def list_mock_quote_numbers(self) -> List[str]:
+        """Extract all available quoteNumber keys from the mock data layer."""
+        mock_path = self.project_root / "mock" / "quote_response.json"
+        if not mock_path.exists():
+            return []
+        raw_data = json.loads(mock_path.read_text(encoding="utf-8"))
+        if isinstance(raw_data, list):
+            return [
+                item.get("quote", {}).get("quoteNumber")
+                for item in raw_data
+                if item.get("quote", {}).get("quoteNumber")
+            ]
+        elif isinstance(raw_data, dict):
+            qn = raw_data.get("quote", {}).get("quoteNumber")
+            return [qn] if qn else []
+        return []

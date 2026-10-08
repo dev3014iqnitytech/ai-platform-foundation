@@ -147,6 +147,22 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+@st.cache_data(ttl=60)
+def fetch_available_quotes(base_url: str) -> list[str]:
+    """Fetch available quoteNumber records from backend API with fallback."""
+    try:
+        res = requests.get(f"{base_url}/api/quotes", timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            quotes = data.get("quotes", [])
+            if quotes:
+                return quotes
+    except Exception:
+        pass
+    return ["QT-2026-001", "QT-2026-002", "QT-2026-003"]
+
+available_quotes = fetch_available_quotes(backend_base_url)
+
 col_upload, col_action = st.columns([2, 1], gap="medium")
 
 with col_upload:
@@ -157,8 +173,17 @@ with col_upload:
         help="Upload a single PDF template file to populate with dealer quote data.",
     )
 
-# Determine button activation based on whether a file is uploaded
-is_file_ready = uploaded_file is not None
+    # Determine button activation based on whether a file is uploaded
+    is_file_ready = uploaded_file is not None
+
+    # Mandatory Dropdown selector immediately following file upload
+    selected_quote = st.selectbox(
+        label="🎯 Select Quote Record * (Mandatory)",
+        options=available_quotes,
+        index=0 if available_quotes else None,
+        disabled=not is_file_ready,
+        help="Mandatory: Choose the specific quote record sequence to parse into the PDF.",
+    )
 
 # Handle file change/reset: if user removes file or changes it, reset generated PDF state
 if not is_file_ready:
@@ -169,30 +194,37 @@ elif st.session_state["last_processed_file_id"] != uploaded_file.file_id:
     st.session_state["generated_pdf_bytes"] = None
     st.session_state["last_processed_file_id"] = uploaded_file.file_id
 
+is_generation_valid = is_file_ready and (selected_quote is not None and len(selected_quote.strip()) > 0)
+
 with col_action:
     st.write("")
     st.write("")
     st.markdown("**Action**")
 
-    # Generate PDF button: strictly disabled if no file is uploaded
+    # Generate PDF button: strictly disabled if no file is uploaded or quote not selected
     generate_button = st.button(
         label="⚡ Generate PDF",
         type="primary",
-        disabled=not is_file_ready,
+        disabled=not is_generation_valid,
         use_container_width=True,
-        help="Enabled once a valid PDF file is uploaded above.",
+        help="Enabled once a valid PDF file is uploaded and a quote sequence is selected.",
     )
 
     if not is_file_ready:
         st.info("👆 Upload a PDF template to enable generation.")
+    elif not is_generation_valid:
+        st.warning("⚠️ Please select a quote sequence from the dropdown.")
     else:
-        st.success(f"📎 Ready: **{uploaded_file.name}** ({uploaded_file.size / 1024:.1f} KB)")
+        st.success(
+            f"📎 Ready: **{uploaded_file.name}** ({uploaded_file.size / 1024:.1f} KB)\n\n"
+            f"Selected Quote: `{selected_quote}`"
+        )
 
 # ─────────────────────────────────────────────────────────────────────────────
 # API Request Handling & Execution
 # ─────────────────────────────────────────────────────────────────────────────
 
-if generate_button and is_file_ready:
+if generate_button and is_generation_valid:
     with st.spinner("Processing your quote and generating PDF..."):
         try:
             # Read file bytes from Streamlit uploaded file
@@ -206,11 +238,15 @@ if generate_button and is_file_ready:
                     "application/pdf",
                 )
             }
+            data_payload = {
+                "quote_number": selected_quote,
+            }
 
             # Send POST request to the v2/demo-quote endpoint
             response = requests.post(
                 url=api_url,
                 files=files_payload,
+                data=data_payload,
                 timeout=90,
             )
 

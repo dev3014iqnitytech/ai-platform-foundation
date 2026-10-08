@@ -1,54 +1,164 @@
-{
-  "quote": {
-    "quoteNumber": "QT-2026-00125",
-    "quoteDate": "2026-10-08",
-    "validUntil": "2026-10-22"
-  },
-  "customer": {
-    "name": "John Smith",
-    "company": "ABC Farms",
-    "address": "123 Farm Road, Manchester",
-    "email": "john.smith@example.com",
-    "phone": "+44 7700 900123"
-  },
-  "product": {
-    "brand": "Fendt",
-    "model": "Fendt 724 Vario",
-    "series": "700 Vario",
-    "configuration": "ProfiPlus",
-    "serialNumber": "F724-2026-001",
-    "image": "assets/product_placeholder.png"
-  },
-  "options": [
-    {
-      "code": "OPT-001",
-      "description": "Front Loader",
-      "price": 12500
+[
+  {
+    "quote": {
+      "quoteNumber": "QT-2026-001",
+      "quoteDate": "2026-10-08",
+      "validUntil": "2026-10-22"
     },
-    {
-      "code": "OPT-002",
-      "description": "Front PTO",
-      "price": 4200
+    "customer": {
+      "name": "John Smith",
+      "company": "ABC Farms Ltd",
+      "address": "123 Farm Road, Manchester",
+      "email": "john.smith@example.com",
+      "phone": "+44 7700 900123"
     },
-    {
-      "code": "OPT-003",
-      "description": "GPS Guidance System",
-      "price": 8900
+    "product": {
+      "brand": "Fendt",
+      "model": "Fendt 724 Vario",
+      "series": "700 Vario",
+      "configuration": "ProfiPlus",
+      "serialNumber": "F724-2026-001",
+      "image": "assets/product_placeholder.png"
+    },
+    "options": [
+      {
+        "code": "OPT-001",
+        "description": "Front Loader Cargo 5X/90",
+        "price": 12500
+      },
+      {
+        "code": "OPT-002",
+        "description": "Front PTO 1000 rpm",
+        "price": 4200
+      },
+      {
+        "code": "OPT-003",
+        "description": "GPS RTK Guidance System",
+        "price": 8900
+      }
+    ],
+    "pricing": {
+      "basePrice": 145000,
+      "optionsPrice": 25600,
+      "discount": 8500,
+      "tax": 32420,
+      "totalPrice": 194520,
+      "currency": "EUR"
+    },
+    "dealer": {
+      "name": "Manchester Ag Equipment",
+      "address": "Manchester, UK",
+      "contactPerson": "David Wilson",
+      "phone": "+44 161 1234567",
+      "email": "sales@manchesterag.com"
     }
-  ],
-  "pricing": {
-    "basePrice": 145000,
-    "optionsPrice": 25600,
-    "discount": 8500,
-    "tax": 32420,
-    "totalPrice": 194520,
-    "currency": "EUR"
   },
-  "dealer": {
-    "name": "Example Fendt Dealer",
-    "address": "Manchester, UK",
-    "contactPerson": "David Wilson",
-    "phone": "+44 161 1234567",
-    "email": "sales@exampledealer.com"
+  {
+    "quote": {
+      "quoteNumber": "QT-2026-002",
+      "quoteDate": "2026-10-09",
+      "validUntil": "2026-10-23"
+    },
+    "customer": {
+      "name": "Emma Watson",
+      "company": "Highland Agri Services",
+      "address": "45 Valley Way, Edinburgh",
+      "email": "emma.watson@highlandagri.co.uk",
+      "phone": "+44 7800 123456"
+    },
+    "product": {
+      "brand": "Fendt",
+      "model": "Fendt 942 Vario",
+      "series": "900 Vario",
+      "configuration": "PowerPlus",
+      "serialNumber": "F942-2026-002",
+      "image": "assets/product_placeholder.png"
+    },
+    "options": [
+      {
+        "code": "OPT-101",
+        "description": "VarioGrip Tyre Pressure System",
+        "price": 9800
+      },
+      {
+        "code": "OPT-102",
+        "description": "Hydraulic Power Beyond Ports",
+        "price": 3400
+      },
+      {
+        "code": "OPT-103",
+        "description": "Evolution Dynamic Dual Comfort Seat",
+        "price": 4600
+      }
+    ],
+    "pricing": {
+      "basePrice": 260000,
+      "optionsPrice": 17800,
+      "discount": 12000,
+      "tax": 53160,
+      "totalPrice": 318960,
+      "currency": "EUR"
+    },
+    "dealer": {
+      "name": "Highland Farm Machinery Ltd",
+      "address": "Edinburgh, UK",
+      "contactPerson": "Fiona Campbell",
+      "phone": "+44 131 4960123",
+      "email": "sales@highlandmachinery.com"
+    }
+  },
+  {
+    "quote": {
+      "quoteNumber": "QT-2026-003",
+      "quoteDate": "2026-10-10",
+      "validUntil": "2026-10-24"
+    },
+    "customer": {
+      "name": "Marcus Vance",
+      "company": "Vance Bio Crops",
+      "address": "88 Meadowlands Lane, York",
+      "email": "m.vance@vancebiocrops.com",
+      "phone": "+44 7900 654321"
+    },
+    "product": {
+      "brand": "Fendt",
+      "model": "Fendt 516 Vario",
+      "series": "500 Vario",
+      "configuration": "ProfiSetting",
+      "serialNumber": "F516-2026-003",
+      "image": "assets/product_placeholder.png"
+    },
+    "options": [
+      {
+        "code": "OPT-201",
+        "description": "SectionControl Precision Kit",
+        "price": 6500
+      },
+      {
+        "code": "OPT-202",
+        "description": "Panoramic VisioPlus Cab Glass",
+        "price": 2800
+      },
+      {
+        "code": "OPT-203",
+        "description": "LED Premium 360 Work Lights Pack",
+        "price": 3100
+      }
+    ],
+    "pricing": {
+      "basePrice": 118000,
+      "optionsPrice": 12400,
+      "discount": 5000,
+      "tax": 25080,
+      "totalPrice": 150480,
+      "currency": "EUR"
+    },
+    "dealer": {
+      "name": "Yorkshire Agricultural Center",
+      "address": "York, UK",
+      "contactPerson": "Robert Taylor",
+      "phone": "+44 1904 555789",
+      "email": "sales@yorkshireag.co.uk"
+    }
   }
-}
+]

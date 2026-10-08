@@ -686,6 +686,17 @@
           <div class="file-remove" id="file-remove" title="Remove file">✕</div>
         </div>
 
+        <!-- Mandatory Quote Sequence Dropdown -->
+        <div class="field-group" style="margin-top: 18px;">
+          <label for="quote-seq-select">Select Quote Record * (Mandatory)</label>
+          <select id="quote-seq-select" disabled required>
+            <option value="" disabled selected>— Upload PDF first to select quote —</option>
+          </select>
+          <span style="font-size: 11px; color: var(--text-3); display: block; margin-top: 4px;">
+            Choose which quote record sequence will be parsed and merged into the document.
+          </span>
+        </div>
+
         <!-- Analysis result -->
         <div class="analysis-panel" id="analysis-panel">
           <div class="analysis-header">
@@ -901,6 +912,8 @@ const analysisPanel   = document.getElementById('analysis-panel');
 const analysisLoading = document.getElementById('analysis-loading');
 const analysisContent = document.getElementById('analysis-content');
 
+const quoteSeqSelect  = document.getElementById('quote-seq-select');
+
 const jsonEditor      = document.getElementById('json-editor');
 const jsonStatus      = document.getElementById('json-status');
 const jsonStatusText  = document.getElementById('json-status-text');
@@ -924,11 +937,40 @@ async function checkHealth() {
       document.getElementById('api-status').textContent = 'API Connected';
       document.querySelector('.dot').style.background = 'var(--brand)';
       loadTemplates();
+      loadQuoteSequences();
     } else { throw new Error(); }
   } catch {
     document.getElementById('api-status').textContent = 'API Offline';
     document.querySelector('.dot').style.background = 'var(--danger)';
     toast('API server is offline. Start: uvicorn app.main:app --reload', 'error');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Load Quote Sequences
+═══════════════════════════════════════════════════════════════════ */
+async function loadQuoteSequences() {
+  try {
+    const r = await fetch(`${API}/api/quotes`);
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    quoteSeqSelect.innerHTML = '<option value="" disabled selected>— Choose Quote Sequence —</option>';
+    (d.quotes || []).forEach((q, idx) => {
+      const opt = document.createElement('option');
+      opt.value = q;
+      opt.textContent = `${q} (Record #${idx + 1})`;
+      quoteSeqSelect.appendChild(opt);
+    });
+  } catch {
+    // Fallback default options
+    const fallback = ['QT-2026-001', 'QT-2026-002', 'QT-2026-003'];
+    quoteSeqSelect.innerHTML = '<option value="" disabled selected>— Choose Quote Sequence —</option>';
+    fallback.forEach((q, idx) => {
+      const opt = document.createElement('option');
+      opt.value = q;
+      opt.textContent = `${q} (Record #${idx + 1})`;
+      quoteSeqSelect.appendChild(opt);
+    });
   }
 }
 
@@ -970,8 +1012,14 @@ fileRemove.addEventListener('click', () => {
   fileInput.value = '';
   fileSelected.classList.remove('visible');
   analysisPanel.classList.remove('visible');
+  quoteSeqSelect.disabled = true;
+  quoteSeqSelect.value = '';
   updateFlowStep('upload', false);
   updateFlowStep('analyze', false);
+  updateButtons();
+});
+
+quoteSeqSelect.addEventListener('change', () => {
   updateButtons();
 });
 
@@ -986,6 +1034,12 @@ async function handleFile(file) {
   analysisPanel.classList.add('visible');
   analysisLoading.style.display = 'flex';
   analysisContent.style.display = 'none';
+
+  // Enable mandatory dropdown selector upon valid template upload action
+  quoteSeqSelect.disabled = false;
+  if (!quoteSeqSelect.value && quoteSeqSelect.options.length > 1) {
+    quoteSeqSelect.selectedIndex = 1; // Default to first available record
+  }
 
   updateFlowStep('upload', true, true);
   updateButtons();
@@ -1141,8 +1195,10 @@ function renderPreview() {
    Button enable/disable
 ═══════════════════════════════════════════════════════════════════ */
 function updateButtons() {
-  btnGenerate.disabled = !(selectedFile && quoteJson);
-  btnDemo.disabled = !selectedFile;
+  const hasFile = !!selectedFile;
+  const hasQuoteSelected = !!(quoteSeqSelect && quoteSeqSelect.value);
+  btnGenerate.disabled = !(hasFile && quoteJson && hasQuoteSelected);
+  btnDemo.disabled = !(hasFile && hasQuoteSelected);
 }
 
 /* ═══════════════════════════════════════════════════════════════════
@@ -1153,8 +1209,10 @@ btnDemo.addEventListener('click',     () => generateQuote(true));
 
 async function generateQuote(isDemo) {
   if (!selectedFile) { toast('Please upload a PDF template first', 'error'); return; }
+  if (!quoteSeqSelect.value) { toast('Please select a mandatory quote record sequence', 'error'); return; }
 
   const templateName = document.getElementById('template-select').value || 'dealer_template';
+  const selectedQuoteNumber = quoteSeqSelect.value;
 
   // UI into loading state
   setGenerating(true);
@@ -1167,6 +1225,7 @@ async function generateQuote(isDemo) {
     const fd = new FormData();
     fd.append('file', selectedFile, selectedFile.name);
     fd.append('template_name', templateName);
+    fd.append('quote_number', selectedQuoteNumber);
 
     let endpoint;
     if (isDemo) {

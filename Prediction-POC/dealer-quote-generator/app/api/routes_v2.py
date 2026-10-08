@@ -318,10 +318,18 @@ async def generate_quote(
     )
 
 
+@router.get("/quotes", summary="Return list of available quote numbers")
+async def list_quotes_v2() -> JSONResponse:
+    """Returns the collection of available quoteNumber keys for frontend selection."""
+    return JSONResponse({"quotes": _get_service().list_mock_quote_numbers()})
+
+
 @router.get("/mock-quote", summary="Return default business mock quote data")
-async def get_mock_quote() -> JSONResponse:
+async def get_mock_quote(
+    quote_number: Optional[str] = None,
+) -> JSONResponse:
     """Returns the mock quote JSON payload for quick testing."""
-    return JSONResponse(_get_service().load_mock_quote())
+    return JSONResponse(_get_service().load_mock_quote(quote_number))
 
 
 @router.post(
@@ -341,6 +349,10 @@ async def demo_quote(
         default=None,
         description="Template mapping name (optional, dynamically generated if omitted)",
     ),
+    quote_number: Optional[str] = Form(
+        default=None,
+        description="Quote sequence number from available collection",
+    ),
 ) -> Response:
     """
     Demo quote endpoint: Upload a PDF template; the YAML template is generated
@@ -355,7 +367,7 @@ async def demo_quote(
 
     pdf_bytes = await file.read()
     svc = _get_service()
-    quote_data = svc.load_mock_quote()
+    quote_data = svc.load_mock_quote(quote_number)
 
     # Dynamically generate and register YAML template from the uploaded PDF
     resolved_name = svc.generate_and_save_dynamic_template(
@@ -396,6 +408,7 @@ async def demo_quote(
 )
 async def demo_quote_get(
     template_name: str = "fendt_dealer_quote_template",
+    quote_number: Optional[str] = None,
 ) -> Response:
     """
     Direct GET link to download the demo quote PDF in a single click from browser or frontend.
@@ -407,7 +420,7 @@ async def demo_quote_get(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Template PDF '{template_name}.pdf' not found in templates directory.",
         )
-    quote_data = svc.load_mock_quote()
+    quote_data = svc.load_mock_quote(quote_number)
     quote_svc = _get_quote_service()
 
     try:
