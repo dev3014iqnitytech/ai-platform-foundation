@@ -25,7 +25,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import fitz  # PyMuPDF
 from reportlab.lib import colors
-from reportlab.lib.units import pt
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.pdfgen import canvas as rl_canvas
 
 from app.services.template_service import (
@@ -124,7 +124,7 @@ class PDFOverlay:
     ) -> bytes:
         """Build a single-page ReportLab PDF with transparent background."""
         buf = io.BytesIO()
-        c = rl_canvas.Canvas(buf, pagesize=(width * pt, height * pt))
+        c = rl_canvas.Canvas(buf, pagesize=(width, height))
         # Set page size explicitly in points
         c.setPageSize((width, height))
 
@@ -147,10 +147,12 @@ class PDFOverlay:
         """Draw a single text item onto the ReportLab canvas."""
         x = item["x"]
         y = item["y"]
-        text = item["text"]
+        text_str = str(item["text"])
         font_name = item.get("font", "Helvetica")
         font_size = item.get("font_size", 10)
         color_rgb = item.get("color", [0, 0, 0])
+        align = item.get("align", "left")
+        max_width = item.get("max_width")
 
         try:
             r, g, b = float(color_rgb[0]), float(color_rgb[1]), float(color_rgb[2])
@@ -161,9 +163,24 @@ class PDFOverlay:
         try:
             c.setFont(font_name, font_size)
         except Exception:
-            c.setFont("Helvetica", font_size)
+            font_name = "Helvetica"
+            c.setFont(font_name, font_size)
 
-        c.drawString(x, y, str(text))
+        # Truncate text if max_width is specified and text exceeds available space
+        if max_width and max_width > 0:
+            current_w = stringWidth(text_str, font_name, font_size)
+            if current_w > max_width:
+                ellipsis = "..."
+                while text_str and stringWidth(text_str + ellipsis, font_name, font_size) > max_width:
+                    text_str = text_str[:-1]
+                text_str = text_str + ellipsis
+
+        if align == "right":
+            c.drawRightString(x, y, text_str)
+        elif align == "center":
+            c.drawCentredString(x, y, text_str)
+        else:
+            c.drawString(x, y, text_str)
 
     def _draw_image(
         self,
@@ -212,6 +229,8 @@ class PDFOverlay:
                 "font": font_name,
                 "font_size": field_cfg.font_size,
                 "color": field_cfg.color,
+                "align": getattr(field_cfg, "align", "left"),
+                "max_width": getattr(field_cfg, "max_width", None),
             }
             by_page.setdefault(field_cfg.page, []).append(item)
         return by_page
@@ -226,19 +245,24 @@ class PDFOverlay:
         items: List[Dict] = []
         col_cfgs = table_cfg.columns
 
-        # Header row
-        header_y = table_cfg.start_y + table_cfg.row_height
-        h_cfg = table_cfg.header
-        for col_key, col in col_cfgs.items():
-            x = table_cfg.start_x + col.x_offset
-            items.append({
-                "x": x,
-                "y": header_y,
-                "text": col.label,
-                "font": "Helvetica-Bold" if h_cfg.bold else "Helvetica",
-                "font_size": h_cfg.font_size,
-                "color": h_cfg.color,
-            })
+        # Header row (only if explicitly enabled to draw)
+        if getattr(table_cfg.header, "draw", False):
+            header_y = table_cfg.start_y + table_cfg.row_height
+            h_cfg = table_cfg.header
+            for col_key, col in col_cfgs.items():
+                x = table_cfg.start_x + col.x_offset
+                if col.align == "right":
+                    x += col.width
+                items.append({
+                    "x": x,
+                    "y": header_y,
+                    "text": col.label,
+                    "font": "Helvetica-Bold" if h_cfg.bold else "Helvetica",
+                    "font_size": h_cfg.font_size,
+                    "color": h_cfg.color,
+                    "align": col.align,
+                    "max_width": col.width if col.width > 0 else None,
+                })
 
         # Data rows
         if len(options) > table_cfg.max_rows:
@@ -258,7 +282,7 @@ class PDFOverlay:
                 display = format_value(raw_val, col.format, currency)
                 x = table_cfg.start_x + col.x_offset
                 if col.align == "right":
-                    x += col.width  # rough right-align; no text width measurement
+                    x += col.width
                 items.append({
                     "x": x,
                     "y": row_y,
@@ -266,6 +290,8 @@ class PDFOverlay:
                     "font": "Helvetica",
                     "font_size": col.font_size,
                     "color": [0, 0, 0],
+                    "align": col.align,
+                    "max_width": col.width if col.width > 0 else None,
                 })
 
         return items

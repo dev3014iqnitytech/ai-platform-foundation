@@ -30,6 +30,7 @@ class ColumnConfig(BaseModel):
 
 
 class TableHeaderConfig(BaseModel):
+    draw: bool = False
     font_size: int = 9
     bold: bool = True
     color: List[float] = Field(default=[1, 1, 1])
@@ -38,8 +39,8 @@ class TableHeaderConfig(BaseModel):
 
 class OptionsTableConfig(BaseModel):
     page: int = 1
-    start_x: float = 50
-    start_y: float = 420
+    start_x: float = 33
+    start_y: float = 364
     row_height: float = 18
     max_rows: int = 10
     columns: Dict[str, ColumnConfig] = {}
@@ -65,6 +66,8 @@ class FieldConfig(BaseModel):
     bold: bool = False
     color: List[float] = Field(default=[0.0, 0.0, 0.0])
     format: Optional[str] = None   # e.g. "currency"
+    align: str = "left"            # "left", "right", "center"
+    max_width: Optional[float] = None
 
 
 class TemplateDefaults(BaseModel):
@@ -72,6 +75,7 @@ class TemplateDefaults(BaseModel):
     font_size: int = 10
     color: List[float] = Field(default=[0.0, 0.0, 0.0])
     bold: bool = False
+    align: str = "left"
 
 
 class TemplateConfig(BaseModel):
@@ -124,6 +128,7 @@ class TemplateService:
                 "font_size": defaults.font_size,
                 "color": defaults.color,
                 "bold": defaults.bold,
+                "align": defaults.align,
             }
             merged.update(cfg)
             merged_fields[key] = FieldConfig(**merged)

@@ -5,7 +5,7 @@
 #
 # Coordinate system: PDF points from bottom-left (ReportLab convention)
 # Page numbers: 1-indexed (page 1 = first page)
-# Colors: RGB tuples 0-1 range, e.g. (0, 0, 0) = black
+# Colors: RGB tuples 0-1 range, e.g. [0, 0, 0] = black
 # ======================================================
 
 template_name: dealer_quote_v1
@@ -18,224 +18,253 @@ defaults:
   font_size: 10
   color: [0, 0, 0]        # RGB black
   bold: false
+  align: left
 
 fields:
 
-  # ── QUOTE INFO ──────────────────────────────────────────────────────
+  # ── QUOTE INFO (Top Header Bar) ─────────────────────────────────────
+  # Dark background header bar; text rendered on underline in white.
   quote_number:
     source: quote.quoteNumber
     page: 1
-    x: 420
-    y: 750
+    x: 478
+    y: 802
     font_size: 9
     bold: false
-    color: [0.2, 0.2, 0.2]
+    color: [1.0, 1.0, 1.0]
+    max_width: 85
 
   quote_date:
     source: quote.quoteDate
     page: 1
-    x: 420
-    y: 735
+    x: 478
+    y: 789
     font_size: 9
     bold: false
-    color: [0.2, 0.2, 0.2]
+    color: [1.0, 1.0, 1.0]
+    max_width: 85
 
   quote_valid_until:
     source: quote.validUntil
     page: 1
-    x: 420
-    y: 720
+    x: 478
+    y: 776
     font_size: 9
     bold: false
-    color: [0.2, 0.2, 0.2]
+    color: [1.0, 1.0, 1.0]
+    max_width: 85
 
   # ── CUSTOMER INFORMATION ────────────────────────────────────────────
+  # Labels end at x=140; fields start at x=142 on respective line baselines.
   customer_name:
     source: customer.name
     page: 1
-    x: 50
-    y: 660
-    font_size: 11
+    x: 142
+    y: 707
+    font_size: 10
     bold: true
     color: [0, 0, 0]
+    max_width: 236
 
   customer_company:
     source: customer.company
     page: 1
-    x: 50
-    y: 645
+    x: 142
+    y: 691
     font_size: 10
     bold: false
+    max_width: 236
 
   customer_address:
     source: customer.address
     page: 1
-    x: 50
-    y: 630
+    x: 142
+    y: 675
     font_size: 10
+    max_width: 236
 
   customer_email:
     source: customer.email
     page: 1
-    x: 50
-    y: 615
+    x: 142
+    y: 659
     font_size: 10
+    max_width: 236
 
   customer_phone:
     source: customer.phone
     page: 1
-    x: 50
-    y: 600
+    x: 142
+    y: 643
     font_size: 10
+    max_width: 236
 
   # ── PRODUCT INFORMATION ─────────────────────────────────────────────
+  # Left column fields on lines ending at x=295 (before product image at x=310).
   product_brand:
     source: product.brand
     page: 1
-    x: 50
-    y: 530
-    font_size: 11
+    x: 142
+    y: 552
+    font_size: 10
     bold: true
+    max_width: 150
 
   product_model:
     source: product.model
     page: 1
-    x: 50
-    y: 515
-    font_size: 12
+    x: 142
+    y: 536
+    font_size: 11
     bold: true
     color: [0.0, 0.3, 0.6]
+    max_width: 150
 
   product_series:
     source: product.series
     page: 1
-    x: 50
-    y: 500
+    x: 142
+    y: 520
     font_size: 10
+    max_width: 150
 
   product_configuration:
     source: product.configuration
     page: 1
-    x: 50
-    y: 485
+    x: 142
+    y: 504
     font_size: 10
+    max_width: 150
 
   product_serial:
     source: product.serialNumber
     page: 1
-    x: 50
-    y: 470
+    x: 142
+    y: 488
     font_size: 9
     color: [0.4, 0.4, 0.4]
+    max_width: 150
 
   # ── PRICING SUMMARY ─────────────────────────────────────────────────
+  # Values right-aligned to right margin of the underline guides at x=565.
   pricing_base:
     source: pricing.basePrice
     page: 1
-    x: 450
-    y: 370
-    font_size: 10
+    x: 565
+    y: 220
+    font_size: 9
     format: currency
+    align: right
 
   pricing_options:
     source: pricing.optionsPrice
     page: 1
-    x: 450
-    y: 355
-    font_size: 10
+    x: 565
+    y: 205
+    font_size: 9
     format: currency
+    align: right
 
   pricing_discount:
     source: pricing.discount
     page: 1
-    x: 450
-    y: 340
-    font_size: 10
+    x: 565
+    y: 190
+    font_size: 9
     format: currency
     color: [0.7, 0.0, 0.0]
+    align: right
 
   pricing_tax:
     source: pricing.tax
     page: 1
-    x: 450
-    y: 325
-    font_size: 10
+    x: 565
+    y: 175
+    font_size: 9
     format: currency
+    align: right
 
   pricing_total:
     source: pricing.totalPrice
     page: 1
-    x: 450
-    y: 300
-    font_size: 13
+    x: 565
+    y: 156
+    font_size: 12
     bold: true
     format: currency
-    color: [0.0, 0.3, 0.6]
+    color: [1.0, 1.0, 1.0]
+    align: right
 
-  pricing_currency:
-    source: pricing.currency
-    page: 1
-    x: 380
-    y: 300
-    font_size: 10
-    bold: true
-
-  # ── DEALER INFORMATION ──────────────────────────────────────────────
+  # ── DEALER INFORMATION (Footer) ─────────────────────────────────────
+  # Dark footer bar; rendered in white on lines under labels.
   dealer_name:
     source: dealer.name
     page: 1
-    x: 50
-    y: 80
-    font_size: 10
+    x: 102
+    y: 35
+    font_size: 9
     bold: true
+    color: [1.0, 1.0, 1.0]
+    max_width: 175
 
   dealer_contact:
     source: dealer.contactPerson
     page: 1
-    x: 50
-    y: 67
+    x: 82
+    y: 21
     font_size: 9
+    color: [1.0, 1.0, 1.0]
+    max_width: 195
 
   dealer_phone:
     source: dealer.phone
     page: 1
-    x: 50
-    y: 54
+    x: 77
+    y: 8
     font_size: 9
+    color: [1.0, 1.0, 1.0]
+    max_width: 200
 
   dealer_email:
     source: dealer.email
     page: 1
-    x: 50
-    y: 41
+    x: 337
+    y: 35
     font_size: 9
+    color: [1.0, 1.0, 1.0]
+    max_width: 225
 
 # ── OPTIONS TABLE ────────────────────────────────────────────────────
+# Table rows fit exactly into the template's table row lines.
+# Header is already drawn on the background template (draw: false avoids duplication).
 options_table:
   page: 1
-  start_x: 50
-  start_y: 420
+  start_x: 33
+  start_y: 364
   row_height: 18
-  max_rows: 10            # If more rows, document them; no silent overflow
+  max_rows: 4
   columns:
     code:
       label: "Code"
       x_offset: 0
-      width: 80
+      width: 70
       font_size: 9
+      align: left
     description:
       label: "Description"
-      x_offset: 85
-      width: 200
+      x_offset: 80
+      width: 340
       font_size: 9
+      align: left
     price:
       label: "Price"
-      x_offset: 295
+      x_offset: 432
       width: 100
       font_size: 9
       format: currency
       align: right
   header:
+    draw: false
     font_size: 9
     bold: true
     color: [1, 1, 1]

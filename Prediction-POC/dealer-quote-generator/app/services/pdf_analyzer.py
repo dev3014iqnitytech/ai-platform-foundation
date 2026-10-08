@@ -124,7 +124,7 @@ class PDFAnalyzer:
             pages=pages,
             has_images=has_images,
             all_fonts=sorted(all_fonts),
-            pdf_version=doc.pdf_version(),
+            pdf_version=doc.metadata.get("format", "") if doc.metadata else "",
         )
 
     def _extract_acro_fields(self, doc: fitz.Document) -> List[AcroField]:
