@@ -47,7 +47,48 @@ class QuoteService:
         self._overlay = PDFOverlay(project_root)
         self._root = project_root
 
+    @property
+    def template_service(self) -> TemplateService:
+        """Expose template service instance."""
+        return self._templates
+
     # ── Public API ────────────────────────────────────────────────────
+
+    def resolve_template_name(self, pdf_bytes: bytes, requested_name: Optional[str] = None) -> str:
+        """
+        Determines the most accurate template mapping based on document structure,
+        page count, and text layout.
+        """
+        if requested_name and requested_name != DEFAULT_TEMPLATE:
+            clean = requested_name.strip()
+            try:
+                self._templates.load(clean)
+                return clean
+            except Exception:
+                pass
+
+        try:
+            import fitz
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            num_pages = len(doc)
+            p0 = doc[0]
+            p0_w = float(p0.rect.width)
+            is_letter = abs(p0_w - 612.0) < 15
+            text0 = p0.get_text()
+            doc.close()
+
+            if num_pages >= 2:
+                return "fendt_dealer_quote_template three"
+
+            if "SAMPLE" in text0 and "DEALER" in text0:
+                return "fendt_quote_template four"
+
+            if is_letter:
+                return "fendt_dealer_quote_template_two"
+
+            return "dealer_template"
+        except Exception:
+            return requested_name or DEFAULT_TEMPLATE
 
     def generate(
         self,
@@ -75,9 +116,10 @@ class QuoteService:
         quote_model = QuoteRequest(**quote_data)
         validated_dict = quote_model.model_dump()
 
-        # 3. Load template config
-        config = self._templates.load(template_name)
-        logger.info("Generating quote with template '%s'", template_name)
+        # 3. Load template config (resolved dynamically if default or uploaded template)
+        resolved_name = self.resolve_template_name(pdf_bytes, template_name)
+        config = self._templates.load(resolved_name)
+        logger.info("Generating quote with template '%s' (requested: '%s')", resolved_name, template_name)
 
         # 4. Analyse PDF to choose strategy
         analysis = self._analyzer.analyze(pdf_bytes)

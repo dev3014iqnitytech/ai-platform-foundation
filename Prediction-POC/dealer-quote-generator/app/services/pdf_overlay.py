@@ -65,6 +65,9 @@ class PDFOverlay:
         background_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
 
         try:
+            # Clean template underscore guides from background doc
+            self._clean_template_underscores(background_doc)
+
             for page_idx in range(background_doc.page_count):
                 page_number = page_idx + 1  # 1-indexed
                 page = background_doc.load_page(page_idx)
@@ -299,6 +302,26 @@ class PDFOverlay:
     # ── Helpers ───────────────────────────────────────────────────────
 
     @staticmethod
+    def _clean_template_underscores(doc: fitz.Document) -> None:
+        """
+        Removes ugly printed text underscores (e.g. '______') used as blank field
+        guides in static templates so they don't strike through overlaid text or
+        wrap awkwardly onto subsequent lines.
+        """
+        for page in doc:
+            has_redactions = False
+            for b in page.get_text("dict", flags=fitz.TEXT_PRESERVE_WHITESPACE).get("blocks", []):
+                if b.get("type") == 0:
+                    for l in b.get("lines", []):
+                        for s in l.get("spans", []):
+                            t = s.get("text", "").strip()
+                            if t and (all(c == "_" for c in t) or t.startswith("____")):
+                                page.add_redact_annot(fitz.Rect(s["bbox"]), fill=False)
+                                has_redactions = True
+            if has_redactions:
+                page.apply_redactions()
+
+    @staticmethod
     def _get_nested(data: Dict[str, Any], dotpath: str) -> Optional[Any]:
         keys = dotpath.split(".")
         current: Any = data
@@ -307,3 +330,4 @@ class PDFOverlay:
                 return None
             current = current.get(k)
         return current
+

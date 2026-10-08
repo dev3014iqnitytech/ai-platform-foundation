@@ -213,3 +213,41 @@ class TestEdgeCases:
         quote["product"] = {**VALID_QUOTE["product"], "image": None}
         result_pdf = quote_service.generate(dealer_template_bytes, quote)
         assert result_pdf.startswith(b"%PDF")
+
+    def test_all_user_templates_alignment_and_clean_underscores(
+        self, quote_service: QuoteService
+    ):
+        """Verify alignment and absence of underscore guides across all user templates."""
+        user_templates = [
+            "dealer_template_one.pdf",
+            "fendt_quote_template four.pdf",
+            "fendt_dealer_quote_template_two.pdf",
+            "fendt_dealer_quote_template three.pdf",
+        ]
+        for t_filename in user_templates:
+            tpl_path = PROJECT_ROOT / "templates" / t_filename
+            if not tpl_path.exists():
+                continue
+            pdf_bytes = tpl_path.read_bytes()
+            res_pdf = quote_service.generate(pdf_bytes, VALID_QUOTE)
+            assert res_pdf.startswith(b"%PDF")
+
+            doc = fitz.open(stream=res_pdf, filetype="pdf")
+            p0 = doc[0]
+            text0 = p0.get_text()
+
+            # Ensure customer name and serial number are present
+            assert "John" in text0
+            assert "F724-2026-001" in text0
+
+            # Verify that unsightly underscore blank lines were removed
+            for b in p0.get_text("dict")["blocks"]:
+                if b.get("type") == 0:
+                    for l in b.get("lines", []):
+                        for s in l.get("spans", []):
+                            t = s.get("text", "").strip()
+                            assert not (len(t) > 3 and all(c == "_" for c in t)), (
+                                f"Underscore guideline '{t}' was not redacted in {t_filename}"
+                            )
+            doc.close()
+
