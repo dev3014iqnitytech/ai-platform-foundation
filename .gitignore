@@ -216,3 +216,5 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+Prediction-POC/dealer-quote-generator/app/mappings
+Prediction-POC/dealer-quote-generator/templates/Other
