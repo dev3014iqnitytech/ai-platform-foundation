@@ -1,0 +1,62 @@
+flowchart LR
+    %% ─────────────────────────────────────────────────────────────
+    %% STYLING
+    %% ─────────────────────────────────────────────────────────────
+    classDef defaultStyle fill:#F8FAFC,stroke:#64748B,stroke-width:2px,color:#0F172A;
+    classDef aiStyle fill:#FEF3C7,stroke:#D97706,stroke-width:3px,color:#92400E,font-weight:bold;
+    classDef outputStyle fill:#ECFDF5,stroke:#059669,stroke-width:2px,color:#065F46;
+
+    %% ─────────────────────────────────────────────────────────────
+    %% HIGH-LEVEL ARCHITECTURE FLOW
+    %% ─────────────────────────────────────────────────────────────
+    subgraph INPUTS ["1. Inputs"]
+        PDF["📄 Dealer PDF Template<br/>(Arbitrary design/layout)"]:::defaultStyle
+        DATA["💾 Quote Business JSON<br/>(Pricing, items, customer)"]:::defaultStyle
+    end
+
+    subgraph CLIENT ["2. Client"]
+        UI["🖥️ Streamlit Web App<br/>(Upload & Live Preview)"]:::defaultStyle
+    end
+
+    subgraph BACKEND ["3. Core Application (FastAPI)"]
+        API["⚡ Orchestration & API Layer<br/>(Quote & Template Services)"]:::defaultStyle
+        
+        AI_MODULE["🤖 [AI ENGINE]<br/>Multimodal Vision LLM (GPT-4o)<br/>───────────────────────<br/>• Reverse-engineers visual layout<br/>• Detects text fields & tables<br/>• Generates dynamic YAML blueprint"]:::aiStyle
+
+        RENDER["🖨️ PDF Rendering Engine<br/>(ReportLab & PyMuPDF Overlay)"]:::defaultStyle
+    end
+
+    subgraph OUTPUTS ["4. Output"]
+        FINAL_PDF["📑 Dealer-Branded Quote PDF<br/>(Dynamic data rendered into dealer's layout)"]:::outputStyle
+    end
+
+    %% ─────────────────────────────────────────────────────────────
+    %% RELATIONSHIPS
+    %% ─────────────────────────────────────────────────────────────
+    PDF --> UI
+    DATA --> UI
+
+    UI -->|"Uploads PDF & Data"| API
+
+    API -->|"Sends PDF page image"| AI_MODULE
+    AI_MODULE -->|"Returns Layout Blueprint (YAML)"| API
+
+    API -->|"Merges Blueprint + Quote Data"| RENDER
+    PDF -.->|"Original background canvas"| RENDER
+
+    RENDER --> FINAL_PDF
+    FINAL_PDF -->|"Instant preview & download"| UI
+
+---
+
+### Where AI is Used (Architectural Specification)
+
+| Aspect | Implementation Details |
+| :--- | :--- |
+| **Component Location** | `app/services/vision_parser_v2.py` (`VisionLayoutParserV2`) |
+| **AI Model Used** | **OpenAI GPT-4o Multimodal Vision** |
+| **Input to AI** | High-resolution rasterized rendering (150 DPI PNG) of the uploaded PDF's first page or uploaded template image + `MASTER_VISION_PROMPT`. |
+| **Output from AI** | Machine-readable **Normalized YAML Layout Blueprint (`v2.0`)** containing geometric bounding boxes (`bbox` in a 0–1000 coordinate grid), page dimensions, typography metadata, color palettes, key-value field bindings, and tabular data column rules. |
+| **Core Problem Solved by AI** | **Zero-Shot Document Ingestion**: Eliminates the need for manual, tedious coordinate measuring or hardcoded template mapping for each dealership. When a new dealer uploads a custom-designed quote template, the Vision LLM dynamically infers the visual layout, labels, and table structure on the fly. |
+| **Resilience & Fallback Strategy** | If the OpenAI API key is missing or the external API call fails, the system automatically falls back to `_parse_pdf_structurally()` — a deterministic, rule-based layout analyzer using PyMuPDF span positions and coordinate heuristics. |
+
