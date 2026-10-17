@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 PDF_MAGIC = b"%PDF"
-MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB
 
 
 # ── Validation ────────────────────────────────────────────────────────────────

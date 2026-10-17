@@ -18,6 +18,8 @@ import streamlit as st
 
 DEFAULT_BACKEND_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 DEMO_QUOTE_ENDPOINT = "/v2/demo-quote"
+MAX_FILE_SIZE_MB = 5
+MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Page Configuration & Styling
@@ -167,14 +169,23 @@ col_upload, col_action = st.columns([2, 1], gap="medium")
 
 with col_upload:
     uploaded_file = st.file_uploader(
-        label="📄 Upload Dealer PDF Template",
+        label="📄 Upload Dealer PDF Template (Max 5MB)",
         type=["pdf"],
         accept_multiple_files=False,
-        help="Upload a single PDF template file to populate with dealer quote data.",
+        help="Upload a single PDF template file (maximum 5MB) to populate with dealer quote data.",
     )
 
-    # Determine button activation based on whether a file is uploaded
+    # Determine button activation based on whether a valid file is uploaded
     is_file_ready = uploaded_file is not None
+    file_size_error = False
+
+    if is_file_ready and uploaded_file.size > MAX_FILE_SIZE_BYTES:
+        is_file_ready = False
+        file_size_error = True
+        st.error(
+            f"❌ File size exceeds the maximum limit of {MAX_FILE_SIZE_MB}MB "
+            f"({uploaded_file.size / (1024 * 1024):.2f}MB). Please upload a file up to {MAX_FILE_SIZE_MB}MB."
+        )
 
     # Mandatory Dropdown selector immediately following file upload
     selected_quote = st.selectbox(
@@ -207,11 +218,14 @@ with col_action:
         type="primary",
         disabled=not is_generation_valid,
         use_container_width=True,
-        help="Enabled once a valid PDF file is uploaded and a quote sequence is selected.",
+        help="Enabled once a valid PDF file (<= 5MB) is uploaded and a quote sequence is selected.",
     )
 
     if not is_file_ready:
-        st.info("👆 Upload a PDF template to enable generation.")
+        if file_size_error:
+            st.error(f"⚠️ File exceeds {MAX_FILE_SIZE_MB}MB limit.")
+        else:
+            st.info("👆 Upload a PDF template to enable generation.")
     elif not is_generation_valid:
         st.warning("⚠️ Please select a quote sequence from the dropdown.")
     else:

@@ -30,6 +30,7 @@ from app.services.quote_service import QuoteService
 from app.services.template_service import TemplateService
 from app.services.template_service_v2 import TemplateServiceV2
 from app.services.vision_parser_v2 import VisionLayoutParserV2
+from app.utils.pdf_utils import MAX_UPLOAD_BYTES
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +131,11 @@ async def upload_template(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Uploaded file is empty.",
+        )
+    if len(file_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Uploaded file exceeds maximum allowed size of {MAX_UPLOAD_BYTES // (1024 * 1024)}MB",
         )
 
     svc = _get_service()
@@ -279,6 +285,11 @@ async def generate_quote(
         )
 
     pdf_bytes = await file.read()
+    if len(pdf_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Uploaded file exceeds maximum allowed size of {MAX_UPLOAD_BYTES // (1024 * 1024)}MB",
+        )
     svc = _get_service()
 
     if quote_json:
@@ -366,6 +377,11 @@ async def demo_quote(
         )
 
     pdf_bytes = await file.read()
+    if len(pdf_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Uploaded file exceeds maximum allowed size of {MAX_UPLOAD_BYTES // (1024 * 1024)}MB",
+        )
     svc = _get_service()
     quote_data = svc.load_mock_quote(quote_number)
 

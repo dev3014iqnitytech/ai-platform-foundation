@@ -669,7 +669,7 @@
         <div class="dropzone" id="dropzone">
           <div class="dropzone-icon">📂</div>
           <h3>Drop your PDF template here</h3>
-          <p>Supports fillable (AcroForm) and static PDFs</p>
+          <p>Supports fillable (AcroForm) and static PDFs · Max 5MB per file</p>
           <label for="pdf-file-input" class="browse-btn">
             ＋ Browse file
           </label>
@@ -1026,6 +1026,12 @@ quoteSeqSelect.addEventListener('change', () => {
 async function handleFile(file) {
   if (!file.name.toLowerCase().endsWith('.pdf')) {
     toast('Only PDF files are accepted', 'error'); return;
+  }
+  const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+  if (file.size > MAX_FILE_SIZE) {
+    toast(`File exceeds 5MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB)`, 'error');
+    fileInput.value = '';
+    return;
   }
   selectedFile = file;
   fileNameDisplay.textContent = file.name;

@@ -32,8 +32,9 @@ class TestValidatePdfBytes:
 
     def test_too_large(self, sample_pdf_bytes):
         big = sample_pdf_bytes * 10000  # make it huge
-        # Only raises if > 50MB; sample PDF is tiny so patch threshold
+        # Only raises if > 5MB; sample PDF is tiny so patch threshold
         from app.utils import pdf_utils
+        assert pdf_utils.MAX_UPLOAD_BYTES == 5 * 1024 * 1024
         original = pdf_utils.MAX_UPLOAD_BYTES
         pdf_utils.MAX_UPLOAD_BYTES = 10  # 10 bytes
         try:

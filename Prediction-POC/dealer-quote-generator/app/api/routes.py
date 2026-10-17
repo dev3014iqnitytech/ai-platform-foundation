@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse, Response
 
 from app.models.quote_models import QuoteRequest
 from app.services.quote_service import QuoteService, DEFAULT_TEMPLATE
+from app.utils.pdf_utils import MAX_UPLOAD_BYTES
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,11 @@ async def analyze_template(
         )
 
     pdf_bytes = await file.read()
+    if len(pdf_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Uploaded file exceeds maximum allowed size of {MAX_UPLOAD_BYTES // (1024 * 1024)}MB",
+        )
     try:
         analysis = _get_service().analyze_template(pdf_bytes)
     except ValueError as exc:
@@ -214,6 +220,11 @@ async def generate_quote(
         )
 
     pdf_bytes = await file.read()
+    if len(pdf_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Uploaded file exceeds maximum allowed size of {MAX_UPLOAD_BYTES // (1024 * 1024)}MB",
+        )
 
     # ── Parse & validate quote JSON ──────────────────────────────────
     try:
@@ -278,6 +289,11 @@ async def demo_quote(
         raise HTTPException(status_code=400, detail="Only PDF files accepted")
 
     pdf_bytes = await file.read()
+    if len(pdf_bytes) > MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Uploaded file exceeds maximum allowed size of {MAX_UPLOAD_BYTES // (1024 * 1024)}MB",
+        )
     svc = _get_service()
 
     try:

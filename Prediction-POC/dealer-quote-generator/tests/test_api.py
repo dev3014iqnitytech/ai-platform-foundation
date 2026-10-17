@@ -198,3 +198,15 @@ def test_demo_quote_with_quote_number(client, sample_pdf_bytes_module):
     assert resp.status_code == 200
     assert resp.content.startswith(b"%PDF")
     assert resp.headers.get("X-Quote-Number") == "QT-2026-002"
+
+
+def test_generate_quote_file_too_large(client):
+    """Files exceeding 5MB are rejected with HTTP 400."""
+    oversized = b"%PDF-1.4 " + (b"0" * (5 * 1024 * 1024 + 100))
+    resp = client.post(
+        "/generate-quote",
+        files={"file": ("template.pdf", oversized, "application/pdf")},
+        data={"quote_json": json.dumps(VALID_QUOTE)},
+    )
+    assert resp.status_code == 400
+    assert "exceeds maximum allowed size" in resp.json()["detail"]
